@@ -100,3 +100,10 @@
   - Deployment Artifacts: `fonts.conf`, `Dockerfile` verified.
   - Secret & Hygiene: No secrets, `.gitignore` active.
 - **Git Remote Target:** `https://github.com/sheikhsajid69/langcraft.git` on branch `main`.
+
+### [Addendum: Professional Documentation & Apache 2.0 Licensing]
+- **Date & Time:** 2026-10-15T20:49:15+05:30
+- **Updates Completed:**
+  - Added official [Apache License, Version 2.0](file:///c:/Users/Sajid/Downloads/LangCraft/LICENSE) (`LICENSE`).
+  - Upgraded [README.md](file:///c:/Users/Sajid/Downloads/LangCraft/README.md) to enterprise-grade quality: comprehensive before/after visual breakdown of Indic `.notdef` tofu bug, Mermaid architecture flowchart, Notion workspace diagrams, complete Indic typography substitution matrix, security model, REST API documentation with `curl` examples, 10-case test matrix, and Docker/Fontconfig deployment guide.
+  - Committed and pushed changes to GitHub `origin/main` (commit hash: `b63c381`).
