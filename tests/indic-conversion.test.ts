@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { detectScriptsInText } from '@/lib/script-detector';
 import { processDocxBuffer, createSampleDocx, mapFontFamily } from '@/lib/docx-processor';
-import { createPdfDocument, tofuValidator } from '@/lib/pdf-engine';
+import { createPdfDocument, renderDocxToPdf, tofuValidator } from '@/lib/pdf-engine';
 import { transcodeKrutiDev, transcodeNudi, transcodeBamini } from '@/lib/legacy-transcoder';
 
 describe('LangCraft Indic Conversion Engine - Mandatory Test Suite', () => {
@@ -22,10 +22,11 @@ describe('LangCraft Indic Conversion Engine - Mandatory Test Suite', () => {
     expect(parsed.diagnostic.primaryScript).toBe('Hindi');
     expect(parsed.diagnostic.fontMappings.some((m) => m.targetFont === 'Noto Sans Devanagari')).toBe(true);
 
-    const pdfBuffer = await createPdfDocument({
-      diagnostic: parsed.diagnostic,
-      htmlContent: parsed.htmlContent,
-      extractedText: parsed.extractedText,
+    const pdfBuffer = await renderDocxToPdf({
+      normalizedDocxBuffer: parsed.normalizedBuffer,
+      filename: parsed.diagnostic.filename,
+      pageSizeCss: parsed.pageSizeCss,
+      expectedScripts: ['Hindi'],
     });
 
     const tofuCheck = tofuValidator(pdfBuffer, ['Hindi']);
@@ -45,17 +46,18 @@ describe('LangCraft Indic Conversion Engine - Mandatory Test Suite', () => {
     expect(detection[0]?.script).toBe('Sanskrit');
 
     const mapped = mapFontFamily('Kokila', 'Sanskrit');
-    expect(mapped.targetFont).toBe('Tiro Devanagari Sanskrit');
+    expect(mapped.targetFont).toBe('Noto Serif Devanagari');
 
     const { buffer, filename } = await createSampleDocx('Sanskrit');
     const parsed = await processDocxBuffer(buffer, filename);
 
     expect(parsed.diagnostic.primaryScript).toBe('Sanskrit');
 
-    const pdfBuffer = await createPdfDocument({
-      diagnostic: parsed.diagnostic,
-      htmlContent: parsed.htmlContent,
-      extractedText: parsed.extractedText,
+    const pdfBuffer = await renderDocxToPdf({
+      normalizedDocxBuffer: parsed.normalizedBuffer,
+      filename: parsed.diagnostic.filename,
+      pageSizeCss: parsed.pageSizeCss,
+      expectedScripts: ['Sanskrit'],
     });
 
     const tofuCheck = tofuValidator(pdfBuffer, ['Sanskrit']);
@@ -81,10 +83,11 @@ describe('LangCraft Indic Conversion Engine - Mandatory Test Suite', () => {
 
     expect(parsed.diagnostic.primaryScript).toBe('Kannada');
 
-    const pdfBuffer = await createPdfDocument({
-      diagnostic: parsed.diagnostic,
-      htmlContent: parsed.htmlContent,
-      extractedText: parsed.extractedText,
+    const pdfBuffer = await renderDocxToPdf({
+      normalizedDocxBuffer: parsed.normalizedBuffer,
+      filename: parsed.diagnostic.filename,
+      pageSizeCss: parsed.pageSizeCss,
+      expectedScripts: ['Kannada'],
     });
 
     const tofuCheck = tofuValidator(pdfBuffer, ['Kannada']);
@@ -110,10 +113,11 @@ describe('LangCraft Indic Conversion Engine - Mandatory Test Suite', () => {
 
     expect(parsed.diagnostic.primaryScript).toBe('Telugu');
 
-    const pdfBuffer = await createPdfDocument({
-      diagnostic: parsed.diagnostic,
-      htmlContent: parsed.htmlContent,
-      extractedText: parsed.extractedText,
+    const pdfBuffer = await renderDocxToPdf({
+      normalizedDocxBuffer: parsed.normalizedBuffer,
+      filename: parsed.diagnostic.filename,
+      pageSizeCss: parsed.pageSizeCss,
+      expectedScripts: ['Telugu'],
     });
 
     const tofuCheck = tofuValidator(pdfBuffer, ['Telugu']);
@@ -139,10 +143,11 @@ describe('LangCraft Indic Conversion Engine - Mandatory Test Suite', () => {
 
     expect(parsed.diagnostic.primaryScript).toBe('Tamil');
 
-    const pdfBuffer = await createPdfDocument({
-      diagnostic: parsed.diagnostic,
-      htmlContent: parsed.htmlContent,
-      extractedText: parsed.extractedText,
+    const pdfBuffer = await renderDocxToPdf({
+      normalizedDocxBuffer: parsed.normalizedBuffer,
+      filename: parsed.diagnostic.filename,
+      pageSizeCss: parsed.pageSizeCss,
+      expectedScripts: ['Tamil'],
     });
 
     const tofuCheck = tofuValidator(pdfBuffer, ['Tamil']);
@@ -159,10 +164,11 @@ describe('LangCraft Indic Conversion Engine - Mandatory Test Suite', () => {
     expect(parsed.diagnostic.tablesCount).toBeGreaterThanOrEqual(1);
     expect(parsed.diagnostic.detectedScripts.length).toBeGreaterThanOrEqual(4);
 
-    const pdfBuffer = await createPdfDocument({
-      diagnostic: parsed.diagnostic,
-      htmlContent: parsed.htmlContent,
-      extractedText: parsed.extractedText,
+    const pdfBuffer = await renderDocxToPdf({
+      normalizedDocxBuffer: parsed.normalizedBuffer,
+      filename: parsed.diagnostic.filename,
+      pageSizeCss: parsed.pageSizeCss,
+      expectedScripts: parsed.diagnostic.detectedScripts,
     });
 
     const tofuCheck = tofuValidator(pdfBuffer, parsed.diagnostic.detectedScripts);
@@ -178,7 +184,7 @@ describe('LangCraft Indic Conversion Engine - Mandatory Test Suite', () => {
     const krutiTranscoded = transcodeKrutiDev(krutiRaw);
     expect(krutiTranscoded).toBe('कि');
 
-    // Kruti Dev with reph 'z': 'dEkz' -> 'धर्म'
+    // Kruti Dev with reph 'Z': 'èkeZ' -> 'धर्म'
     const krutiDharma = 'èkeZ';
     const transcodedDharma = transcodeKrutiDev(krutiDharma);
     expect(transcodedDharma).toBe('धर्म');
@@ -192,5 +198,31 @@ describe('LangCraft Indic Conversion Engine - Mandatory Test Suite', () => {
     const baminiRaw = 'f';
     const baminiTranscoded = transcodeBamini(baminiRaw);
     expect(baminiTranscoded).toBe('க');
+  });
+
+  // TC-11: 1:1 WYSIWYG Document Rendering without Diagnostics
+  it('TC-11 (1:1 WYSIWYG Document Rendering): produces 100% pure document PDF without diagnostic watermarks', async () => {
+    const { buffer, filename } = await createSampleDocx('Hindi');
+    const parsed = await processDocxBuffer(buffer, filename);
+
+    const pdfBuffer = await renderDocxToPdf({
+      normalizedDocxBuffer: parsed.normalizedBuffer,
+      filename,
+      pageSizeCss: parsed.pageSizeCss,
+      expectedScripts: ['Hindi'],
+    });
+
+    const pdfString = pdfBuffer.toString('latin1');
+
+    // Assert that NO diagnostic manifest text is present in the PDF output
+    expect(pdfString.includes('LangCraft | Verified Zero-Tofu Indic PDF')).toBe(false);
+    expect(pdfString.includes('Indic Typography & Font Substitution Manifest')).toBe(false);
+    expect(pdfString.includes('Total Paragraphs:')).toBe(false);
+    expect(pdfString.includes('[PASS] Invariant Verified')).toBe(false);
+
+    // Assert that the PDF is a valid vector stream
+    expect(pdfBuffer.length).toBeGreaterThan(1000);
+    const tofuCheck = tofuValidator(pdfBuffer, ['Hindi']);
+    expect(tofuCheck.valid).toBe(true);
   });
 });

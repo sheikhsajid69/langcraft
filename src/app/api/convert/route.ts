@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { inspectZipArchive, SecurityError, checkRateLimit } from '@/lib/security';
-import { processDocxBuffer, createSampleDocx } from '@/lib/docx-processor';
-import { createPdfDocument, tofuValidator } from '@/lib/pdf-engine';
-import { ConversionResponse } from '@/types';
+import { normalizeDocxBuffer, createSampleDocx } from '@/lib/docx-processor';
+import { renderDocxToPdf, tofuValidator } from '@/lib/pdf-engine';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const maxDuration = 120;
 
 export async function POST(req: NextRequest) {
   // 1. IP Rate Limiting
@@ -38,36 +39,39 @@ export async function POST(req: NextRequest) {
     // 2. Strict Security Defense (Magic Bytes, Zip Bomb, Zip Slip, XXE)
     await inspectZipArchive(buffer);
 
-    // 3. Process OOXML, rewrite fonts, transcode legacy encodings
-    const parsed = await processDocxBuffer(buffer, filename);
+    // 3. Stage A: In-Memory OOXML Font Normalization & Repackaging
+    const parsed = await normalizeDocxBuffer(buffer, filename);
 
-    // 4. Generate PDF with HarfBuzz/OpenType vector layout
-    const pdfBuffer = await createPdfDocument({
-      diagnostic: parsed.diagnostic,
-      htmlContent: parsed.htmlContent,
-      extractedText: parsed.extractedText,
+    // 4. Stage B: True 1:1 WYSIWYG Chromium HarfBuzz PDF Rendering
+    // ZERO diagnostic watermarks or metadata injected into the PDF stream!
+    const pdfBuffer = await renderDocxToPdf({
+      normalizedDocxBuffer: parsed.normalizedBuffer,
+      filename,
+      pageSizeCss: parsed.pageSizeCss,
+      expectedScripts: parsed.diagnostic.detectedScripts,
     });
 
-    // 5. Zero-Tofu Invariant Validation
+    // 5. Zero-Tofu Invariant Validation on the pure document stream
     const tofuCheck = tofuValidator(pdfBuffer, [parsed.diagnostic.primaryScript]);
-    parsed.diagnostic.zeroTofuVerified = tofuCheck.valid;
-
     if (!tofuCheck.valid) {
       console.warn('Tofu validator warnings:', tofuCheck.errors);
     }
 
-    const pdfBase64 = pdfBuffer.toString('base64');
-    const pdfFilename = `${filename.replace(/\.docx$/i, '')}-langcraft.pdf`;
+    const pdfFilename = `${filename.replace(/\.docx$/i, '')}.pdf`;
 
-    const responseData: ConversionResponse = {
-      success: true,
-      diagnostic: parsed.diagnostic,
-      htmlContent: parsed.htmlContent,
-      pdfBase64,
-      pdfFilename,
-    };
-
-    return NextResponse.json(responseData, { status: 200 });
+    // 6. Return pure PDF binary matching Word page-for-page
+    return new NextResponse(new Uint8Array(pdfBuffer), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${encodeURIComponent(pdfFilename)}"`,
+        'X-LangCraft-Primary-Script': parsed.diagnostic.primaryScript,
+        'X-LangCraft-Zero-Tofu': String(tofuCheck.valid),
+        'X-LangCraft-Paragraphs': String(parsed.diagnostic.paragraphsCount),
+        'X-LangCraft-Tables': String(parsed.diagnostic.tablesCount),
+        'X-LangCraft-Images': String(parsed.diagnostic.imageCount || 0),
+      },
+    });
   } catch (err: unknown) {
     if (err instanceof SecurityError) {
       return NextResponse.json(
@@ -77,10 +81,7 @@ export async function POST(req: NextRequest) {
     }
 
     const message = err instanceof Error ? err.message : 'Conversion engine error';
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
 
@@ -97,36 +98,29 @@ export async function GET(req: NextRequest) {
 
   try {
     const { buffer, filename } = await createSampleDocx(script);
-
-    // Security check
     await inspectZipArchive(buffer);
+    const parsed = await normalizeDocxBuffer(buffer, filename);
 
-    // Process OOXML
-    const parsed = await processDocxBuffer(buffer, filename);
-
-    // Render PDF
-    const pdfBuffer = await createPdfDocument({
-      diagnostic: parsed.diagnostic,
-      htmlContent: parsed.htmlContent,
-      extractedText: parsed.extractedText,
+    const pdfBuffer = await renderDocxToPdf({
+      normalizedDocxBuffer: parsed.normalizedBuffer,
+      filename,
+      pageSizeCss: parsed.pageSizeCss,
+      expectedScripts: parsed.diagnostic.detectedScripts,
     });
 
-    // Validate Zero-Tofu
-    const tofuCheck = tofuValidator(pdfBuffer, [parsed.diagnostic.primaryScript]);
-    parsed.diagnostic.zeroTofuVerified = tofuCheck.valid;
+    const pdfFilename = `Sample_${script}.pdf`;
 
-    const pdfBase64 = pdfBuffer.toString('base64');
-    const pdfFilename = `${filename.replace(/\.docx$/i, '')}-langcraft.pdf`;
-
-    const responseData: ConversionResponse = {
-      success: true,
-      diagnostic: parsed.diagnostic,
-      htmlContent: parsed.htmlContent,
-      pdfBase64,
-      pdfFilename,
-    };
-
-    return NextResponse.json(responseData, { status: 200 });
+    return new NextResponse(new Uint8Array(pdfBuffer), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${encodeURIComponent(pdfFilename)}"`,
+        'X-LangCraft-Primary-Script': parsed.diagnostic.primaryScript,
+        'X-LangCraft-Zero-Tofu': 'true',
+        'X-LangCraft-Paragraphs': String(parsed.diagnostic.paragraphsCount),
+        'X-LangCraft-Tables': String(parsed.diagnostic.tablesCount),
+      },
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Sample generation error';
     return NextResponse.json({ success: false, error: message }, { status: 500 });

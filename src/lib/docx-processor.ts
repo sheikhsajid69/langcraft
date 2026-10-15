@@ -28,9 +28,11 @@ export const FONT_SUBSTITUTION_MATRIX: Record<
   // Devanagari / Hindi & Sanskrit
   mangal: { targetFont: 'Noto Sans Devanagari', script: 'Hindi' },
   'nirmala ui': { targetFont: 'Noto Sans Devanagari', script: 'Hindi' },
-  kokila: { targetFont: 'Tiro Devanagari Sanskrit', script: 'Sanskrit' },
   aparajita: { targetFont: 'Noto Sans Devanagari', script: 'Hindi' },
   utsaah: { targetFont: 'Noto Sans Devanagari', script: 'Hindi' },
+  kokila: { targetFont: 'Noto Serif Devanagari', script: 'Sanskrit' },
+  'sanskrit 2003': { targetFont: 'Noto Serif Devanagari', script: 'Sanskrit' },
+  siddhanta: { targetFont: 'Noto Serif Devanagari', script: 'Sanskrit' },
   'kruti dev 010': { targetFont: 'Noto Sans Devanagari', script: 'Hindi' },
   'kruti dev 020': { targetFont: 'Noto Sans Devanagari', script: 'Hindi' },
   chanakya: { targetFont: 'Noto Sans Devanagari', script: 'Hindi' },
@@ -51,6 +53,9 @@ export const FONT_SUBSTITUTION_MATRIX: Record<
   latha: { targetFont: 'Noto Sans Tamil', script: 'Tamil' },
   vijaya: { targetFont: 'Noto Sans Tamil', script: 'Tamil' },
   bamini: { targetFont: 'Noto Sans Tamil', script: 'Tamil' },
+
+  // Math
+  'cambria math': { targetFont: 'Noto Sans Math', script: 'General' },
 };
 
 /**
@@ -62,7 +67,7 @@ export function mapFontFamily(
 ): { targetFont: string; script: IndicScript | 'General' } {
   if (!sourceFont) {
     if (detectedScript === 'Sanskrit') {
-      return { targetFont: 'Tiro Devanagari Sanskrit', script: 'Sanskrit' };
+      return { targetFont: 'Noto Serif Devanagari', script: 'Sanskrit' };
     }
     if (detectedScript === 'Hindi') {
       return { targetFont: 'Noto Sans Devanagari', script: 'Hindi' };
@@ -88,7 +93,7 @@ export function mapFontFamily(
 
   // Fallback based on detected script
   if (detectedScript === 'Sanskrit') {
-    return { targetFont: 'Tiro Devanagari Sanskrit', script: 'Sanskrit' };
+    return { targetFont: 'Noto Serif Devanagari', script: 'Sanskrit' };
   }
   if (detectedScript === 'Hindi') {
     return { targetFont: 'Noto Sans Devanagari', script: 'Hindi' };
@@ -110,227 +115,195 @@ export interface ParsedDocxResult {
   diagnostic: DocumentDiagnostic;
   htmlContent: string;
   extractedText: string;
+  normalizedBuffer: Buffer;
+  pageSizeCss?: string;
 }
 
 /**
- * Parses DOCX buffer in-memory, rewrites fonts, transcodes legacy runs,
- * and produces normalized HTML AST.
+ * Normalizes an uploaded DOCX buffer in-memory:
+ * 1. Rewrites proprietary Windows Indic fonts to OpenType Noto fonts in document.xml, fontTable.xml, styles.xml.
+ * 2. Transcodes legacy ASCII fonts (Kruti Dev, Chanakya, Nudi, Bamini) into canonical Unicode NFC.
+ * 3. Preserves all original styles (<w:sz>, <w:b>, <w:i>, <w:color>), margins (<w:pgMar>), page size (<w:pgSz>), tables, and embedded images (word/media/*).
+ * 4. Repackages the modified OOXML into a clean, normalized .docx buffer for Chromium HarfBuzz rendering.
  */
-export async function processDocxBuffer(
+export async function normalizeDocxBuffer(
   buffer: Buffer | ArrayBuffer,
   filename: string
 ): Promise<ParsedDocxResult> {
   const zip = await JSZip.loadAsync(buffer);
 
-  // Read word/fontTable.xml if present
   const originalFontsSet = new Set<string>();
-  const fontTableFile = zip.file('word/fontTable.xml');
-  if (fontTableFile) {
-    const fontXml = await fontTableFile.async('text');
-    try {
-      const parsedFonts = xmlParser.parse(fontXml);
-      const fonts = parsedFonts?.['w:fonts']?.['w:font'];
-      if (Array.isArray(fonts)) {
-        for (const f of fonts) {
-          const name = f?.['@_w:name'];
-          if (name) originalFontsSet.add(name);
-        }
-      } else if (fonts && fonts['@_w:name']) {
-        originalFontsSet.add(fonts['@_w:name']);
-      }
-    } catch {
-      // Ignored non-fatal parse
-    }
-  }
-
-  // Read word/document.xml
-  const documentFile = zip.file('word/document.xml');
-  if (!documentFile) {
-    throw new Error('Invalid DOCX: missing word/document.xml');
-  }
-
-  const documentXml = await documentFile.async('text');
-  const parsedDoc = xmlParser.parse(documentXml);
-
-  const body = parsedDoc?.['w:document']?.['w:body'];
-  if (!body) {
-    throw new Error('Invalid DOCX: missing w:body element');
-  }
-
-  let paragraphsCount = 0;
-  let tablesCount = 0;
   const legacyFontsDetectedSet = new Set<string>();
   const fontMappingsMap = new Map<string, FontMappingInfo>();
 
+  // Count images in word/media/*
+  const imageCount = Object.keys(zip.files).filter((path) =>
+    path.toLowerCase().startsWith('word/media/')
+  ).length;
+
+  // 1. Process word/fontTable.xml if present
+  const fontTableEntry = zip.file('word/fontTable.xml');
+  if (fontTableEntry) {
+    let fontXml = await fontTableEntry.async('text');
+    try {
+      const parsed = xmlParser.parse(fontXml);
+      const fonts = parsed?.['w:fonts']?.['w:font'];
+      const fontList = Array.isArray(fonts) ? fonts : fonts ? [fonts] : [];
+      for (const f of fontList) {
+        const name = f?.['@_w:name'];
+        if (name) originalFontsSet.add(name);
+      }
+    } catch {
+      // non-fatal
+    }
+
+    // Rewrite fonts in fontTable.xml
+    for (const [key, mapping] of Object.entries(FONT_SUBSTITUTION_MATRIX)) {
+      const regex = new RegExp(`(w:name=["'])${key}(["'])`, 'gi');
+      fontXml = fontXml.replace(regex, `$1${mapping.targetFont}$2`);
+    }
+    zip.file('word/fontTable.xml', fontXml);
+  }
+
+  // 2. Process word/styles.xml if present
+  const stylesEntry = zip.file('word/styles.xml');
+  if (stylesEntry) {
+    let stylesXml = await stylesEntry.async('text');
+    for (const [key, mapping] of Object.entries(FONT_SUBSTITUTION_MATRIX)) {
+      stylesXml = stylesXml
+        .replace(new RegExp(`(w:ascii=["'])${key}(["'])`, 'gi'), `$1${mapping.targetFont}$2`)
+        .replace(new RegExp(`(w:hAnsi=["'])${key}(["'])`, 'gi'), `$1${mapping.targetFont}$2`)
+        .replace(new RegExp(`(w:cs=["'])${key}(["'])`, 'gi'), `$1${mapping.targetFont}$2`)
+        .replace(new RegExp(`(w:eastAsia=["'])${key}(["'])`, 'gi'), `$1${mapping.targetFont}$2`);
+    }
+    zip.file('word/styles.xml', stylesXml);
+  }
+
+  // 3. Process word/document.xml
+  const docEntry = zip.file('word/document.xml');
+  if (!docEntry) {
+    throw new Error('Invalid DOCX: missing word/document.xml');
+  }
+
+  let docXml = await docEntry.async('text');
+
+  // Extract page dimensions (<w:pgSz>) and margins (<w:pgMar>)
+  let pageSizeCss = '@page { size: A4 portrait; margin: 20mm; }';
+  const pgSzMatch = docXml.match(/<w:pgSz[^>]*w:w="(\d+)"[^>]*w:h="(\d+)"/i);
+  const pgMarMatch = docXml.match(
+    /<w:pgMar[^>]*w:top="(\d+)"[^>]*w:right="(\d+)"[^>]*w:bottom="(\d+)"[^>]*w:left="(\d+)"/i
+  );
+
+  if (pgSzMatch && pgSzMatch[1] && pgSzMatch[2]) {
+    const widthInches = (parseInt(pgSzMatch[1], 10) / 1440).toFixed(3);
+    const heightInches = (parseInt(pgSzMatch[2], 10) / 1440).toFixed(3);
+    let marginCss = 'margin: 1in;';
+    if (pgMarMatch && pgMarMatch[1] && pgMarMatch[2] && pgMarMatch[3] && pgMarMatch[4]) {
+      const topIn = (parseInt(pgMarMatch[1], 10) / 1440).toFixed(3);
+      const rightIn = (parseInt(pgMarMatch[2], 10) / 1440).toFixed(3);
+      const bottomIn = (parseInt(pgMarMatch[3], 10) / 1440).toFixed(3);
+      const leftIn = (parseInt(pgMarMatch[4], 10) / 1440).toFixed(3);
+      marginCss = `margin: ${topIn}in ${rightIn}in ${bottomIn}in ${leftIn}in;`;
+    }
+    pageSizeCss = `@page { size: ${widthInches}in ${heightInches}in; ${marginCss} }`;
+  }
+
+  // Extract text and detect original fonts from runs
+  let paragraphsCount = 0;
+  let tablesCount = 0;
   let fullExtractedText = '';
-  let htmlOutput = '<div class="langcraft-doc-preview space-y-4 text-sm leading-relaxed">';
 
-  // Helper to extract run content
-  const processRun = (r: any): string => {
-    if (!r) return '';
-    const rPr = r['w:rPr'];
-    const rFonts = rPr?.['w:rFonts'];
+  const parsedDoc = xmlParser.parse(docXml);
+  const body = parsedDoc?.['w:document']?.['w:body'];
 
-    // Check declared font
-    const fontName =
-      rFonts?.['@_w:cs'] ||
-      rFonts?.['@_w:ascii'] ||
-      rFonts?.['@_w:hAnsi'] ||
-      rFonts?.['@_w:eastAsia'] ||
-      '';
+  // Count paragraphs and tables from parsed structure
+  if (body) {
+    const pElements = body['w:p'];
+    if (Array.isArray(pElements)) paragraphsCount = pElements.length;
+    else if (pElements) paragraphsCount = 1;
 
-    if (fontName) {
+    const tblElements = body['w:tbl'];
+    if (Array.isArray(tblElements)) tablesCount = tblElements.length;
+    else if (tblElements) tablesCount = 1;
+  }
+
+  // Extract text nodes and detect scripts
+  const textMatches = docXml.match(/<w:t[^>]*>([^<]*)<\/w:t>/g) || [];
+  for (const tTag of textMatches) {
+    const match = tTag.match(/<w:t[^>]*>([^<]*)<\/w:t>/);
+    if (match && match[1]) {
+      fullExtractedText += ' ' + match[1];
+    }
+  }
+
+  // Detect proprietary font declarations in <w:rFonts>
+  const rFontsMatches = docXml.match(/<w:rFonts[^>]*\/>/g) || [];
+  for (const rf of rFontsMatches) {
+    const nameMatch = rf.match(/w:(?:ascii|cs|hAnsi)=["']([^"']+)["']/i);
+    if (nameMatch && nameMatch[1]) {
+      const fontName = nameMatch[1];
       originalFontsSet.add(fontName);
-    }
 
-    const isBold = !!rPr?.['w:b'];
-    const isItalic = !!rPr?.['w:i'];
-    const isUnderline = !!rPr?.['w:u'];
-
-    let rawText = '';
-    const tNode = r['w:t'];
-    if (typeof tNode === 'string') {
-      rawText = tNode;
-    } else if (tNode && typeof tNode === 'object') {
-      rawText = tNode['#text'] || '';
-    }
-
-    if (!rawText) return '';
-
-    // Legacy font transcoding if applicable
-    let text = rawText;
-    const isLegacy = isLegacyFont(fontName);
-    if (isLegacy) {
-      legacyFontsDetectedSet.add(fontName);
-      text = transcodeText(rawText, fontName);
-    } else {
-      text = text.normalize('NFC');
-    }
-
-    fullExtractedText += ' ' + text;
-
-    // Detect script for this run
-    const scriptResults = detectScriptsInText(text);
-    const primaryRunScript = scriptResults[0]?.script as IndicScript | undefined;
-
-    // Map font
-    const mapped = mapFontFamily(fontName, primaryRunScript);
-    if (fontName && !fontMappingsMap.has(fontName)) {
-      fontMappingsMap.set(fontName, {
-        sourceFont: fontName,
-        targetFont: mapped.targetFont,
-        script: mapped.script,
-        status: isLegacy ? 'Transcoded' : 'Normalized',
-        harfbuzzReady: true,
-      });
-    }
-
-    // Determine CSS class for CTL
-    let fontClass = 'font-sans';
-    if (mapped.script === 'Hindi' || primaryRunScript === 'Hindi') {
-      fontClass = 'indic-text-devanagari';
-    } else if (mapped.script === 'Sanskrit' || primaryRunScript === 'Sanskrit') {
-      fontClass = 'indic-text-sanskrit';
-    } else if (mapped.script === 'Kannada' || primaryRunScript === 'Kannada') {
-      fontClass = 'indic-text-kannada';
-    } else if (mapped.script === 'Telugu' || primaryRunScript === 'Telugu') {
-      fontClass = 'indic-text-telugu';
-    } else if (mapped.script === 'Tamil' || primaryRunScript === 'Tamil') {
-      fontClass = 'indic-text-tamil';
-    }
-
-    let runHtml = `<span class="${fontClass}" style="font-family: '${mapped.targetFont}', sans-serif;">${escapeHtml(
-      text
-    )}</span>`;
-
-    if (isBold) runHtml = `<strong>${runHtml}</strong>`;
-    if (isItalic) runHtml = `<em>${runHtml}</em>`;
-    if (isUnderline) runHtml = `<u>${runHtml}</u>`;
-
-    return runHtml;
-  };
-
-  // Helper to process a paragraph
-  const processParagraph = (p: any): string => {
-    paragraphsCount++;
-    const pPr = p?.['w:pPr'];
-    const jc = pPr?.['w:jc']?.['@_w:val'];
-    let textAlign = 'text-left';
-    if (jc === 'center') textAlign = 'text-center';
-    else if (jc === 'right') textAlign = 'text-right';
-    else if (jc === 'both') textAlign = 'text-justify';
-
-    let pHtml = `<p class="${textAlign} my-2 min-h-[1.2em]">`;
-
-    const runs = p?.['w:r'];
-    if (Array.isArray(runs)) {
-      for (const r of runs) {
-        pHtml += processRun(r);
-      }
-    } else if (runs) {
-      pHtml += processRun(runs);
-    }
-
-    pHtml += '</p>';
-    return pHtml;
-  };
-
-  // Helper to process a table
-  const processTable = (tbl: any): string => {
-    tablesCount++;
-    let tblHtml =
-      '<div class="overflow-x-auto my-4"><table class="w-full border-collapse border border-[#37352F]/20 text-xs">';
-    const rows = tbl?.['w:tr'];
-    const rowList = Array.isArray(rows) ? rows : rows ? [rows] : [];
-
-    for (const tr of rowList) {
-      tblHtml += '<tr>';
-      const cells = tr?.['w:tc'];
-      const cellList = Array.isArray(cells) ? cells : cells ? [cells] : [];
-      for (const tc of cellList) {
-        tblHtml += '<td class="border border-[#37352F]/20 p-2">';
-        const paras = tc?.['w:p'];
-        const pList = Array.isArray(paras) ? paras : paras ? [paras] : [];
-        for (const p of pList) {
-          tblHtml += processParagraph(p);
-        }
-        tblHtml += '</td>';
-      }
-      tblHtml += '</tr>';
-    }
-
-    tblHtml += '</table></div>';
-    return tblHtml;
-  };
-
-  // Iterate top-level body children
-  const bodyKeys = Object.keys(body);
-  for (const key of bodyKeys) {
-    if (key === 'w:p') {
-      const pData = body[key];
-      if (Array.isArray(pData)) {
-        for (const p of pData) htmlOutput += processParagraph(p);
-      } else {
-        htmlOutput += processParagraph(pData);
-      }
-    } else if (key === 'w:tbl') {
-      const tblData = body[key];
-      if (Array.isArray(tblData)) {
-        for (const tbl of tblData) htmlOutput += processTable(tbl);
-      } else {
-        htmlOutput += processTable(tblData);
+      if (isLegacyFont(fontName)) {
+        legacyFontsDetectedSet.add(fontName);
       }
     }
   }
 
-  htmlOutput += '</div>';
+  // Transcode legacy font runs in docXml if present
+  if (legacyFontsDetectedSet.size > 0) {
+    for (const legFont of legacyFontsDetectedSet) {
+      // Find runs using this legacy font and transcode their text
+      docXml = docXml.replace(
+        /(<w:r\b[^>]*>(?:(?!<\/w:r>)[\s\S])*?<w:rFonts\b[^>]*w:(?:ascii|cs)=["']([^"']*?)["'][^>]*\/>(?:(?!<\/w:r>)[\s\S])*?<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>[\s\S]*?<\/w:r>)/gi,
+        (match, prefix, fontName, textContent, suffix) => {
+          if (fontName.toLowerCase().includes(legFont.toLowerCase())) {
+            const transcoded = transcodeText(textContent, fontName);
+            return `${prefix}${transcoded}${suffix}`;
+          }
+          return match;
+        }
+      );
+    }
+  }
 
-  // Perform full-text script detection
+  // Rewrite proprietary font references in document.xml
+  for (const [key, mapping] of Object.entries(FONT_SUBSTITUTION_MATRIX)) {
+    docXml = docXml
+      .replace(new RegExp(`(w:ascii=["'])${key}(["'])`, 'gi'), `$1${mapping.targetFont}$2`)
+      .replace(new RegExp(`(w:hAnsi=["'])${key}(["'])`, 'gi'), `$1${mapping.targetFont}$2`)
+      .replace(new RegExp(`(w:cs=["'])${key}(["'])`, 'gi'), `$1${mapping.targetFont}$2`)
+      .replace(new RegExp(`(w:eastAsia=["'])${key}(["'])`, 'gi'), `$1${mapping.targetFont}$2`);
+  }
+
+  zip.file('word/document.xml', docXml);
+
+  // Repackage normalized .docx buffer
+  const normalizedBuffer = await zip.generateAsync({
+    type: 'nodebuffer',
+    compression: 'DEFLATE',
+  });
+
+  // Run linguistic script detection
   const detectedScriptResults = detectScriptsInText(fullExtractedText);
   const detectedScripts = detectedScriptResults.map((r) => r.script as IndicScript);
   const primaryScript = determinePrimaryScript(detectedScriptResults);
 
-  // If no fonts mapped yet, add default based on detected script
+  // Populate font mappings
+  for (const origFont of originalFontsSet) {
+    const hintScript =
+      primaryScript === 'Mixed' || primaryScript === 'Latin' ? undefined : primaryScript;
+    const mapped = mapFontFamily(origFont, hintScript);
+    const isLegacy = isLegacyFont(origFont);
+    fontMappingsMap.set(origFont, {
+      sourceFont: origFont,
+      targetFont: mapped.targetFont,
+      script: mapped.script,
+      status: isLegacy ? 'Transcoded' : 'Normalized',
+      harfbuzzReady: true,
+    });
+  }
+
   if (fontMappingsMap.size === 0) {
     const fallbackScript: IndicScript =
       primaryScript === 'Mixed' || primaryScript === 'Latin' ? 'Hindi' : primaryScript;
@@ -351,18 +324,58 @@ export async function processDocxBuffer(
     primaryScript,
     originalFonts: Array.from(originalFontsSet),
     fontMappings: Array.from(fontMappingsMap.values()),
-    paragraphsCount,
+    paragraphsCount: Math.max(paragraphsCount, 1),
     tablesCount,
+    imageCount,
     legacyFontsDetected: Array.from(legacyFontsDetectedSet),
     harfbuzzCtlStatus: 'Active',
     zeroTofuVerified: true,
   };
 
+  // Generate lightweight HTML preview for the left inspection pane
+  const htmlContent = generateHtmlPreview(fullExtractedText, diagnostic);
+
   return {
     diagnostic,
-    htmlContent: htmlOutput,
+    htmlContent,
     extractedText: fullExtractedText,
+    normalizedBuffer,
+    pageSizeCss,
   };
+}
+
+/**
+ * Backward compatibility alias for processDocxBuffer
+ */
+export async function processDocxBuffer(
+  buffer: Buffer | ArrayBuffer,
+  filename: string
+): Promise<ParsedDocxResult> {
+  return normalizeDocxBuffer(buffer, filename);
+}
+
+function generateHtmlPreview(extractedText: string, diagnostic: DocumentDiagnostic): string {
+  const paragraphs = extractedText
+    .split(/\n+/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+
+  let fontClass = 'font-sans';
+  if (diagnostic.primaryScript === 'Hindi') fontClass = 'indic-text-devanagari';
+  else if (diagnostic.primaryScript === 'Sanskrit') fontClass = 'indic-text-sanskrit';
+  else if (diagnostic.primaryScript === 'Kannada') fontClass = 'indic-text-kannada';
+  else if (diagnostic.primaryScript === 'Telugu') fontClass = 'indic-text-telugu';
+  else if (diagnostic.primaryScript === 'Tamil') fontClass = 'indic-text-tamil';
+
+  let html = `<div class="langcraft-doc-preview space-y-3 ${fontClass}">`;
+  for (const para of paragraphs.slice(0, 50)) {
+    html += `<p class="leading-relaxed my-2">${escapeHtml(para)}</p>`;
+  }
+  if (paragraphs.length > 50) {
+    html += `<p class="text-xs text-[#787774] italic">... (${paragraphs.length - 50} more paragraphs in document)</p>`;
+  }
+  html += '</div>';
+  return html;
 }
 
 function escapeHtml(str: string): string {
@@ -575,6 +588,10 @@ export async function createSampleDocx(
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:body>
     ${bodyContent}
+    <w:sectPr>
+      <w:pgSz w:w="11906" w:h="16838"/>
+      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/>
+    </w:sectPr>
   </w:body>
 </w:document>`
   );

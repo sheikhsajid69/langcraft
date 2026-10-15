@@ -107,3 +107,15 @@
   - Added official [Apache License, Version 2.0](file:///c:/Users/Sajid/Downloads/LangCraft/LICENSE) (`LICENSE`).
   - Upgraded [README.md](file:///c:/Users/Sajid/Downloads/LangCraft/README.md) to enterprise-grade quality: comprehensive before/after visual breakdown of Indic `.notdef` tofu bug, Mermaid architecture flowchart, Notion workspace diagrams, complete Indic typography substitution matrix, security model, REST API documentation with `curl` examples, 10-case test matrix, and Docker/Fontconfig deployment guide.
   - Committed and pushed changes to GitHub `origin/main` (commit hash: `b63c381`).
+
+### [Critical Hotfix: True 1:1 WYSIWYG DOCX-to-PDF Chromium HarfBuzz Pipeline]
+- **Date & Time:** 2026-10-15T21:10:00+05:30
+- **Problem Resolved:** Output PDF previously contained a 1-page diagnostic manifest instead of rendering the user's actual document pages (e.g., 1,802 paragraphs and 3 tables).
+- **Architectural Fixes Implemented:**
+  - **Rule 1 (Zero Diagnostic Watermarks):** Completely deleted diagnostic text and manifest tables from the generated PDF. All diagnostic stats are returned strictly via JSON inspection endpoints and response headers.
+  - **Rule 2 (Stage A - OOXML Font Normalization in `src/lib/docx-processor.ts`):** In-memory parsing of `word/document.xml`, `word/styles.xml`, and `word/fontTable.xml` with `jszip`. Proprietary Windows Indic fonts (`Mangal`, `Nirmala UI`, `Aparajita`, `Utsaah`, `Kokila`, `Tunga`, `Gautami`, `Latha`, `Cambria Math`) rewritten to metric-compatible OpenType Google Noto fonts (`Noto Sans Devanagari`, `Noto Serif Devanagari`, `Noto Sans Kannada`, `Noto Sans Telugu`, `Noto Sans Tamil`, `Noto Sans Math`) while preserving all formatting, colors, bold, italics, page sizes (`<w:pgSz>`), margins (`<w:pgMar>`), tables, and embedded images (`word/media/*`).
+  - **Rule 2 (Stage B - Headless Chromium HarfBuzz in `src/lib/pdf-engine.ts`):** Integrated `playwright` (Chromium) + `docx-preview`. Renders the normalized `.docx` buffer with full CSS OpenType feature settings (`font-feature-settings: "kern" 1, "liga" 1, "clig" 1, "calt" 1, "pres" 1, "abvs" 1, "blws" 1, "psts" 1, "haln" 1`), waits for web fonts and images, and outputs exact Word page-for-page vector PDF via `page.pdf({ printBackground: true, preferCSSPageSize: true })`.
+  - **Rule 3 (Endpoint Separation):**
+    - `POST /api/inspect`: Returns JSON metadata for the Notion UI table (scripts, paragraph counts, table counts, image counts, font substitutions).
+    - `POST /api/convert`: Returns the pure, multi-page vector PDF binary matching Microsoft Word page-for-page with zero diagnostic watermarks.
+  - **Rule 4 (Verification):** Added automated test TC-11 verifying that the output PDF contains 100% user document content and zero diagnostic manifest strings. All 12 test suites passing (100% green). Production build completed cleanly.

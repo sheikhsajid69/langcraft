@@ -31,6 +31,7 @@ export interface DocumentDiagnostic {
   fontMappings: FontMappingInfo[];
   paragraphsCount: number;
   tablesCount: number;
+  imageCount?: number;
   legacyFontsDetected: string[];
   harfbuzzCtlStatus: 'Active' | 'Optimized';
   zeroTofuVerified: boolean;

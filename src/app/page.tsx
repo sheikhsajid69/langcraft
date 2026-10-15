@@ -1,14 +1,14 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { Topbar } from '@/components/Topbar';
 import { Dropzone } from '@/components/Dropzone';
 import { DiagnosticTable } from '@/components/DiagnosticTable';
 import { FontRegistryModal } from '@/components/FontRegistryModal';
 import { PreviewSplitView } from '@/components/PreviewSplitView';
-import { DocumentDiagnostic, ConversionResponse, IndicScript } from '@/types';
-import { Sparkles, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { DocumentDiagnostic, IndicScript } from '@/types';
+import { ShieldAlert } from 'lucide-react';
 
 export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -20,8 +20,10 @@ export default function Home() {
 
   const [diagnostic, setDiagnostic] = useState<DocumentDiagnostic | null>(null);
   const [htmlContent, setHtmlContent] = useState<string | null>(null);
-  const [pdfBase64, setPdfBase64] = useState<string | undefined>(undefined);
+  const [pdfUrl, setPdfUrl] = useState<string | undefined>(undefined);
   const [pdfFilename, setPdfFilename] = useState<string>('langcraft-output.pdf');
+
+  const activePdfUrlRef = useRef<string | undefined>(undefined);
 
   const [conversionHistory, setConversionHistory] = useState<
     Array<{
@@ -45,6 +47,15 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Cleanup object URL on unmount
+  useEffect(() => {
+    return () => {
+      if (activePdfUrlRef.current) {
+        URL.revokeObjectURL(activePdfUrlRef.current);
+      }
+    };
+  }, []);
+
   const handleToggleDarkMode = () => {
     setIsDarkMode((prev) => {
       const next = !prev;
@@ -58,9 +69,13 @@ export default function Home() {
   };
 
   const handleReset = () => {
+    if (activePdfUrlRef.current) {
+      URL.revokeObjectURL(activePdfUrlRef.current);
+      activePdfUrlRef.current = undefined;
+    }
     setDiagnostic(null);
     setHtmlContent(null);
-    setPdfBase64(undefined);
+    setPdfUrl(undefined);
     setError(null);
   };
 
@@ -75,32 +90,56 @@ export default function Home() {
         formData.append('targetScript', selectedScriptFilter);
       }
 
-      const res = await fetch('/api/convert', {
+      // Step 1: Query /api/inspect for diagnostic metadata
+      const inspectRes = await fetch('/api/inspect', {
         method: 'POST',
         body: formData,
       });
 
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({ error: 'Conversion failed' }));
-        throw new Error(errJson.error || `Server responded with status ${res.status}`);
+      if (!inspectRes.ok) {
+        const errJson = await inspectRes.json().catch(() => ({ error: 'Inspection failed' }));
+        throw new Error(errJson.error || `Inspection error (HTTP ${inspectRes.status})`);
       }
 
-      const data: ConversionResponse = await res.json();
-      if (!data.success) {
-        throw new Error(data.error || 'Conversion encountered an error');
+      const inspectData = await inspectRes.json();
+      if (!inspectData.success) {
+        throw new Error(inspectData.error || 'Document inspection failed');
       }
 
-      setDiagnostic(data.diagnostic);
-      setHtmlContent(data.htmlContent);
-      setPdfBase64(data.pdfBase64);
-      setPdfFilename(data.pdfFilename || `${file.name.replace(/\.docx$/i, '')}-langcraft.pdf`);
+      setDiagnostic(inspectData.diagnostic);
+      setHtmlContent(inspectData.htmlContent);
+
+      // Step 2: Query /api/convert for true 1:1 vector PDF binary stream
+      const convertRes = await fetch('/api/convert', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!convertRes.ok) {
+        const errJson = await convertRes.json().catch(() => ({ error: 'Conversion failed' }));
+        throw new Error(errJson.error || `Conversion error (HTTP ${convertRes.status})`);
+      }
+
+      const pdfBlob = await convertRes.blob();
+
+      // Revoke old object URL
+      if (activePdfUrlRef.current) {
+        URL.revokeObjectURL(activePdfUrlRef.current);
+      }
+
+      const newPdfUrl = URL.createObjectURL(pdfBlob);
+      activePdfUrlRef.current = newPdfUrl;
+      setPdfUrl(newPdfUrl);
+
+      const targetFilename = `${file.name.replace(/\.docx$/i, '')}.pdf`;
+      setPdfFilename(targetFilename);
 
       setConversionHistory((prev) => [
         {
           id: Math.random().toString(36).substring(2, 9),
           filename: file.name,
           timestamp: new Date().toLocaleTimeString(),
-          script: data.diagnostic.primaryScript,
+          script: inspectData.diagnostic.primaryScript,
           status: 'Verified',
         },
         ...prev.slice(0, 9),
@@ -113,36 +152,60 @@ export default function Home() {
     }
   };
 
-  const handleLoadSample = async (sampleScript: 'Hindi' | 'Sanskrit' | 'Kannada' | 'Telugu' | 'Tamil' | 'Mixed') => {
+  const handleLoadSample = async (
+    sampleScript: 'Hindi' | 'Sanskrit' | 'Kannada' | 'Telugu' | 'Tamil' | 'Mixed'
+  ) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const res = await fetch(`/api/convert?sample=${sampleScript.toLowerCase()}`, {
+      // Step 1: Inspect sample metadata
+      const inspectRes = await fetch(`/api/inspect?sample=${sampleScript.toLowerCase()}`, {
         method: 'GET',
       });
 
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({ error: 'Sample generation failed' }));
-        throw new Error(errJson.error || `Server error ${res.status}`);
+      if (!inspectRes.ok) {
+        const errJson = await inspectRes.json().catch(() => ({ error: 'Sample inspect failed' }));
+        throw new Error(errJson.error || `Sample inspect error (HTTP ${inspectRes.status})`);
       }
 
-      const data: ConversionResponse = await res.json();
-      if (!data.success) {
-        throw new Error(data.error || 'Sample conversion error');
+      const inspectData = await inspectRes.json();
+      if (!inspectData.success) {
+        throw new Error(inspectData.error || 'Sample inspect failed');
       }
 
-      setDiagnostic(data.diagnostic);
-      setHtmlContent(data.htmlContent);
-      setPdfBase64(data.pdfBase64);
-      setPdfFilename(data.pdfFilename || `sample-${sampleScript.toLowerCase()}.pdf`);
+      setDiagnostic(inspectData.diagnostic);
+      setHtmlContent(inspectData.htmlContent);
+
+      // Step 2: Convert sample to 1:1 PDF binary
+      const convertRes = await fetch(`/api/convert?sample=${sampleScript.toLowerCase()}`, {
+        method: 'GET',
+      });
+
+      if (!convertRes.ok) {
+        const errJson = await convertRes.json().catch(() => ({ error: 'Sample conversion failed' }));
+        throw new Error(errJson.error || `Sample convert error (HTTP ${convertRes.status})`);
+      }
+
+      const pdfBlob = await convertRes.blob();
+
+      if (activePdfUrlRef.current) {
+        URL.revokeObjectURL(activePdfUrlRef.current);
+      }
+
+      const newPdfUrl = URL.createObjectURL(pdfBlob);
+      activePdfUrlRef.current = newPdfUrl;
+      setPdfUrl(newPdfUrl);
+
+      const targetFilename = `Sample_${sampleScript}.pdf`;
+      setPdfFilename(targetFilename);
 
       setConversionHistory((prev) => [
         {
           id: Math.random().toString(36).substring(2, 9),
           filename: `Sample_${sampleScript}.docx`,
           timestamp: new Date().toLocaleTimeString(),
-          script: data.diagnostic.primaryScript,
+          script: inspectData.diagnostic.primaryScript,
           status: 'Verified',
         },
         ...prev.slice(0, 9),
@@ -228,7 +291,7 @@ export default function Home() {
             <div className="space-y-3">
               <PreviewSplitView
                 htmlContent={htmlContent}
-                pdfBase64={pdfBase64}
+                pdfUrl={pdfUrl}
                 pdfFilename={pdfFilename}
                 diagnostic={diagnostic}
               />

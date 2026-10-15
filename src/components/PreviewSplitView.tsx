@@ -6,7 +6,6 @@ import {
   Eye,
   FileCheck,
   ShieldCheck,
-  Maximize2,
   ZoomIn,
   ZoomOut,
   RotateCcw,
@@ -16,6 +15,7 @@ import { DocumentDiagnostic } from '@/types';
 interface PreviewSplitViewProps {
   htmlContent: string;
   pdfBase64?: string;
+  pdfUrl?: string;
   pdfFilename?: string;
   diagnostic: DocumentDiagnostic;
 }
@@ -23,18 +23,22 @@ interface PreviewSplitViewProps {
 export const PreviewSplitView: React.FC<PreviewSplitViewProps> = ({
   htmlContent,
   pdfBase64,
+  pdfUrl,
   pdfFilename = 'langcraft-output.pdf',
   diagnostic,
 }) => {
   const [zoomLevel, setZoomLevel] = useState<number>(100);
 
+  const activePdfSource = pdfUrl || (pdfBase64 ? `data:application/pdf;base64,${pdfBase64}` : undefined);
+
   const handleDownloadPdf = () => {
-    if (!pdfBase64) return;
-    const linkSource = `data:application/pdf;base64,${pdfBase64}`;
+    if (!activePdfSource) return;
     const downloadLink = document.createElement('a');
-    downloadLink.href = linkSource;
+    downloadLink.href = activePdfSource;
     downloadLink.download = pdfFilename;
+    document.body.appendChild(downloadLink);
     downloadLink.click();
+    document.body.removeChild(downloadLink);
   };
 
   return (
@@ -47,7 +51,7 @@ export const PreviewSplitView: React.FC<PreviewSplitViewProps> = ({
             Verified Zero-Tofu PDF (0 \uFFFD · 0 .notdef)
           </span>
           <span className="text-xs text-[#787774] dark:text-[#9B9B9B] hidden md:inline">
-            Embedded OpenType CID Subsets Active
+            1:1 WYSIWYG Chromium HarfBuzz Vector Stream
           </span>
         </div>
 
@@ -83,7 +87,7 @@ export const PreviewSplitView: React.FC<PreviewSplitViewProps> = ({
           {/* Download Button */}
           <button
             onClick={handleDownloadPdf}
-            disabled={!pdfBase64}
+            disabled={!activePdfSource}
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-[#2383E2] hover:bg-[#1f73c7] text-white text-xs font-medium shadow-sm transition-colors disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
@@ -122,18 +126,18 @@ export const PreviewSplitView: React.FC<PreviewSplitViewProps> = ({
             <div className="flex items-center gap-2">
               <FileCheck className="w-3.5 h-3.5 text-[#0F7B6C]" />
               <span className="font-semibold text-[#37352F] dark:text-[#D4D4D4]">
-                Generated PDF Vector Output
+                Generated 1:1 Document PDF
               </span>
             </div>
             <span className="text-[11px] text-[#0F7B6C] font-mono">
-              Identity-H CMap Embedded
+              Word Layout · Zero Diagnostic Watermarks
             </span>
           </div>
 
           <div className="flex-1 overflow-hidden bg-[#525659]/10 relative flex items-center justify-center">
-            {pdfBase64 ? (
+            {activePdfSource ? (
               <iframe
-                src={`data:application/pdf;base64,${pdfBase64}#toolbar=0&navpanes=0`}
+                src={`${activePdfSource}#toolbar=0&navpanes=0`}
                 className="w-full h-full border-0"
                 title="LangCraft PDF Preview"
               />
