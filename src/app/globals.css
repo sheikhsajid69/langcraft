@@ -1,0 +1,76 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Sans+Kannada:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;500;600;700&family=Noto+Sans+Telugu:wght@400;500;600;700&family=Tiro+Devanagari+Sanskrit:ital@0;1&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --notion-canvas: #ffffff;
+  --notion-sidebar: #f7f6f3;
+  --notion-ink: #37352f;
+  --notion-ink-subtle: #787774;
+  --notion-border: rgba(55, 53, 47, 0.09);
+  --notion-hover: #efefed;
+  --notion-active: rgba(55, 53, 47, 0.06);
+}
+
+.dark {
+  --notion-canvas: #191919;
+  --notion-sidebar: #202020;
+  --notion-ink: #d4d4d4;
+  --notion-ink-subtle: #9b9b9b;
+  --notion-border: rgba(255, 255, 255, 0.09);
+  --notion-hover: #2c2c2c;
+  --notion-active: rgba(255, 255, 255, 0.06);
+}
+
+body {
+  color: var(--notion-ink);
+  background: var(--notion-canvas);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Indic Complex Text Layout (CTL) OpenType Shaping Rules */
+.indic-text-devanagari {
+  font-family: 'Noto Sans Devanagari', 'Mangal', sans-serif;
+  font-feature-settings: "kern" 1, "liga" 1, "clig" 1, "calt" 1, "pres" 1, "abvs" 1, "blws" 1, "psts" 1, "haln" 1;
+}
+
+.indic-text-sanskrit {
+  font-family: 'Tiro Devanagari Sanskrit', 'Noto Sans Devanagari', serif;
+  font-feature-settings: "kern" 1, "liga" 1, "clig" 1, "calt" 1, "pres" 1, "abvs" 1, "blws" 1, "psts" 1, "haln" 1;
+}
+
+.indic-text-kannada {
+  font-family: 'Noto Sans Kannada', 'Tunga', sans-serif;
+  font-feature-settings: "kern" 1, "liga" 1, "clig" 1, "calt" 1, "pres" 1, "abvs" 1, "blws" 1, "psts" 1, "haln" 1;
+}
+
+.indic-text-telugu {
+  font-family: 'Noto Sans Telugu', 'Gautami', sans-serif;
+  font-feature-settings: "kern" 1, "liga" 1, "clig" 1, "calt" 1, "pres" 1, "abvs" 1, "blws" 1, "psts" 1, "haln" 1;
+}
+
+.indic-text-tamil {
+  font-family: 'Noto Sans Tamil', 'Latha', sans-serif;
+  font-feature-settings: "kern" 1, "liga" 1, "clig" 1, "calt" 1, "pres" 1, "abvs" 1, "blws" 1, "psts" 1, "haln" 1;
+}
+
+/* Notion Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(55, 53, 47, 0.15);
+  border-radius: 3px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
