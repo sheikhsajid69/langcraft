@@ -1,6 +1,6 @@
 <div align="center">
 <img width="55" height="55" style="border-radius:25%;" alt="Epic-Elephant-langcraft-2" src="https://github.com/user-attachments/assets/f61207fa-6ece-48ee-b09a-4246c8de2312" />
-<big><b>LangCraft</b></big>
+<big style="size:55px;"><b>LangCraft</b></big>
 
 ### **Enterprise-Grade Indic DOCX-to-PDF Conversion Engine**
 *Eliminating the "Tofu" (`.notdef` / `\uFFFD`) Glyph Corruption Bug Across Indic Scripts via In-Memory OOXML Normalization & HarfBuzz OpenType Complex Text Layout.*
