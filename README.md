@@ -1,5 +1,5 @@
 <div align="center">
-<img width="50" height="50" style="border-radius:35%;" alt="Epic-Elephant-langcraft" src="https://github.com/user-attachments/assets/4184edcf-67fe-439e-8c6f-66d71be58d6d" />
+<img width="50" height="50" style="border-radius:30px;" alt="Epic-Elephant-langcraft" src="https://github.com/user-attachments/assets/4184edcf-67fe-439e-8c6f-66d71be58d6d" />
 <big><b>LangCraft</b></big>
 
 ### **Enterprise-Grade Indic DOCX-to-PDF Conversion Engine**
