@@ -39,8 +39,8 @@ export const Dropzone: React.FC<DropzoneProps> = ({
       const isZip =
         headerBytes[0] === 0x50 &&
         headerBytes[1] === 0x4b &&
-        (headerBytes[2] === 0x03 || headerBytes[2] === 0x05 || headerBytes[2] === 0x07) &&
-        (headerBytes[3] === 0x04 || headerBytes[3] === 0x06 || headerBytes[3] === 0x08);
+        headerBytes[2] === 0x03 &&
+        headerBytes[3] === 0x04;
 
       if (!isZip) {
         setValidationError('File header corrupted. Missing valid PKZIP signature bytes.');

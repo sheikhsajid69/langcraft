@@ -1,5 +1,7 @@
 <div align="center">
 
+![LangCraft emblem](public/Epic-Elephant-langcraft.png)
+
 # 📜 LangCraft
 
 ### **Enterprise-Grade Indic DOCX-to-PDF Conversion Engine**
@@ -17,6 +19,8 @@
 ---
 
 </div>
+
+> **Current renderer:** LangCraft normalizes OOXML font declarations in memory, renders the normalized package with docx-preview in Playwright Chromium, waits for fonts and embedded images, and prints Chromium's HarfBuzz-shaped document to a multi-page PDF. Inspection metadata stays in /api/inspect; /api/convert emits only the document PDF.
 
 ## 📑 Table of Contents
 - [1. Executive Summary](#1-executive-summary)

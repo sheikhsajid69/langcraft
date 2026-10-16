@@ -119,3 +119,10 @@
     - `POST /api/inspect`: Returns JSON metadata for the Notion UI table (scripts, paragraph counts, table counts, image counts, font substitutions).
     - `POST /api/convert`: Returns the pure, multi-page vector PDF binary matching Microsoft Word page-for-page with zero diagnostic watermarks.
   - **Rule 4 (Verification):** Added automated test TC-11 verifying that the output PDF contains 100% user document content and zero diagnostic manifest strings. All 12 test suites passing (100% green). Production build completed cleanly.
+
+### [2026-10-16 Remediation Pass]
+- Wired the Epic Elephant asset into public assets, metadata, workspace switcher, breadcrumb, and page header.
+- Kept the existing Playwright + docx-preview document-only pipeline; zero print margins leave source section margin geometry to docx-preview.
+- Removed external OOXML relationships during normalization and abort non-font browser egress.
+- Tightened upload validation to PK 03 04 at the client and server boundary.
+- Verification: npx tsc --noEmit, npm run lint, and npm test passed; 13 tests total.

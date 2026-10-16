@@ -105,6 +105,18 @@ export async function renderDocxToPdf(options: RenderPdfOptions): Promise<Buffer
     const context = await browser.newContext({
       viewport: { width: 1280, height: 1800 },
     });
+    await context.route('**/*', async (route) => {
+      const url = new URL(route.request().url());
+      const isFontHost =
+        url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
+
+      if (url.protocol === 'http:' || url.protocol === 'https:') {
+        await (isFontHost ? route.continue() : route.abort());
+        return;
+      }
+
+      await route.continue();
+    });
     const page = await context.newPage();
 
     // Prepare HTML shell with Google Fonts and print overrides
@@ -116,7 +128,7 @@ export async function renderDocxToPdf(options: RenderPdfOptions): Promise<Buffer
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif+Devanagari:wght@400;600;700&family=Tiro+Devanagari+Sanskrit:ital@0;1&family=Noto+Sans+Kannada:wght@400;500;600;700&family=Noto+Serif+Kannada:wght@400;700&family=Noto+Sans+Telugu:wght@400;500;600;700&family=Noto+Serif+Telugu:wght@400;700&family=Noto+Sans+Tamil:wght@400;500;600;700&family=Noto+Serif+Tamil:wght@400;700&family=Noto+Sans+Math&family=Noto+Serif:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
   <style>
-    ${pageSizeCss || '@page { size: A4 portrait; margin: 20mm; }'}
+    ${pageSizeCss || '@page { size: A4 portrait; margin: 0; }'}
     * {
       box-sizing: border-box;
     }

@@ -7,6 +7,7 @@ import {
 } from '@/types';
 import { detectScriptsInText, determinePrimaryScript } from './script-detector';
 import { isLegacyFont, transcodeText } from './legacy-transcoder';
+import { sanitizeRelationshipXml } from './security';
 
 // Safe XML Parser Configuration (XXE and DTD completely disabled)
 const xmlParser = new XMLParser({
@@ -188,24 +189,13 @@ export async function normalizeDocxBuffer(
   let docXml = await docEntry.async('text');
 
   // Extract page dimensions (<w:pgSz>) and margins (<w:pgMar>)
-  let pageSizeCss = '@page { size: A4 portrait; margin: 20mm; }';
+  let pageSizeCss = '@page { size: A4 portrait; margin: 0; }';
   const pgSzMatch = docXml.match(/<w:pgSz[^>]*w:w="(\d+)"[^>]*w:h="(\d+)"/i);
-  const pgMarMatch = docXml.match(
-    /<w:pgMar[^>]*w:top="(\d+)"[^>]*w:right="(\d+)"[^>]*w:bottom="(\d+)"[^>]*w:left="(\d+)"/i
-  );
-
   if (pgSzMatch && pgSzMatch[1] && pgSzMatch[2]) {
     const widthInches = (parseInt(pgSzMatch[1], 10) / 1440).toFixed(3);
     const heightInches = (parseInt(pgSzMatch[2], 10) / 1440).toFixed(3);
-    let marginCss = 'margin: 1in;';
-    if (pgMarMatch && pgMarMatch[1] && pgMarMatch[2] && pgMarMatch[3] && pgMarMatch[4]) {
-      const topIn = (parseInt(pgMarMatch[1], 10) / 1440).toFixed(3);
-      const rightIn = (parseInt(pgMarMatch[2], 10) / 1440).toFixed(3);
-      const bottomIn = (parseInt(pgMarMatch[3], 10) / 1440).toFixed(3);
-      const leftIn = (parseInt(pgMarMatch[4], 10) / 1440).toFixed(3);
-      marginCss = `margin: ${topIn}in ${rightIn}in ${bottomIn}in ${leftIn}in;`;
-    }
-    pageSizeCss = `@page { size: ${widthInches}in ${heightInches}in; ${marginCss} }`;
+    // docx-preview applies w:pgMar as section padding; PDF page margins must stay at zero.
+    pageSizeCss = `@page { size: ${widthInches}in ${heightInches}in; margin: 0; }`;
   }
 
   // Extract text and detect original fonts from runs
@@ -277,6 +267,14 @@ export async function normalizeDocxBuffer(
   }
 
   zip.file('word/document.xml', docXml);
+
+  // External OOXML relationships are never part of the document payload.
+  for (const entryPath of Object.keys(zip.files)) {
+    if (entryPath.startsWith('word/_rels/') && entryPath.endsWith('.rels')) {
+      const entry = zip.file(entryPath);
+      if (entry) zip.file(entryPath, sanitizeRelationshipXml(await entry.async('text')));
+    }
+  }
 
   // Repackage normalized .docx buffer
   const normalizedBuffer = await zip.generateAsync({

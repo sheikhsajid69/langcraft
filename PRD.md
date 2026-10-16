@@ -53,3 +53,12 @@ LangCraft provides an intuitive, high-density Notion-style workspace:
 - **Security:** Ephemeral zero-retention storage. No customer data persists on disk after stream completion. Memory limits enforced. DTD/XXE completely disabled.
 - **Reliability:** 100% deterministic font embedding; standalone operation without external network dependencies during conversion.
 - **Browser Compatibility:** Works across modern Evergreen browsers (Chrome, Edge, Firefox, Safari).
+
+---
+
+## 5. Delivery Reconciliation — 2026-10-16
+
+- PDFs contain normalized source document content only; inspection values remain JSON/UI diagnostics.
+- Epic Elephant is the application identity and metadata asset.
+- Page size is read from OOXML and print margins are zero because docx-preview applies source section margins.
+- External OOXML relationships are removed before rendering.

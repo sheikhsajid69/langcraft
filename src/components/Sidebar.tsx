@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import {
   FileText,
   Languages,
@@ -50,16 +51,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <>
       <aside
         className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-[#37352F]/10 dark:border-white/10 bg-[#F7F6F3] dark:bg-[#202020] transition-all duration-200 ease-in-out ${
-          isOpen ? 'w-64' : 'w-0 -translate-x-full'
+          isOpen ? 'w-60' : 'w-0 -translate-x-full'
         }`}
       >
         {/* Workspace Brand */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#37352F]/10 dark:border-white/10">
+        <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#37352F]/10 dark:border-white/10">
           <div className="flex items-center gap-2">
-            <span className="text-xl">📜</span>
+            <Image
+              src="/Epic-Elephant-langcraft.png"
+              alt="LangCraft Workspace"
+              width={24}
+              height={24}
+              className="h-6 w-6 rounded-lg border border-black/5 shadow-sm dark:border-white/10"
+            />
             <div className="flex flex-col">
               <span className="font-semibold text-sm tracking-tight text-[#37352F] dark:text-[#D4D4D4]">
-                LangCraft
+                LangCraft Workspace
               </span>
               <span className="text-[11px] text-[#787774] dark:text-[#9B9B9B]">
                 Indic Typography Engine

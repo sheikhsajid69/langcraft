@@ -36,12 +36,12 @@ export function verifyZipMagicBytes(buffer: Buffer | Uint8Array): void {
     throw new SecurityError('Uploaded payload too small to be a valid file.');
   }
 
-  // PK\x03\x04
+  // DOCX packages must begin with a local-file header; empty ZIP signatures are not accepted.
   const isZip =
     bytes[0] === 0x50 &&
     bytes[1] === 0x4b &&
-    (bytes[2] === 0x03 || bytes[2] === 0x05 || bytes[2] === 0x07) &&
-    (bytes[3] === 0x04 || bytes[3] === 0x06 || bytes[3] === 0x08);
+    bytes[2] === 0x03 &&
+    bytes[3] === 0x04;
 
   if (!isZip) {
     throw new SecurityError(
@@ -83,14 +83,14 @@ export function validateXmlSafety(xmlString: string, filename: string = 'documen
     );
   }
 
-  if (upper.includes('SYSTEM') && (upper.includes('FILE://') || upper.includes('HTTP://') || upper.includes('HTTPS://'))) {
+  if (upper.includes('SYSTEM')) {
     throw new SecurityError(
       `Security violation: XXE SYSTEM entity attempt detected in ${filename}`,
       400
     );
   }
 
-  if (upper.includes('PUBLIC') && upper.includes('//')) {
+  if (upper.includes('PUBLIC')) {
     throw new SecurityError(
       `Security violation: XXE PUBLIC entity attempt detected in ${filename}`,
       400
@@ -103,8 +103,8 @@ export function validateXmlSafety(xmlString: string, filename: string = 'documen
  */
 export function sanitizeRelationshipXml(relsXml: string): string {
   validateXmlSafety(relsXml, 'relationships');
-  // Strip external TargetMode="External" with http/https schemes if any
-  return relsXml.replace(/TargetMode="External"\s+Target="https?:\/\/[^"]*"/gi, 'TargetMode="External" Target="#"');
+  // Remove external relationships regardless of attribute order so the renderer only sees package content.
+  return relsXml.replace(/<Relationship\b(?=[^>]*\bTargetMode=["']External["'])[^>]*\/?>(?:<\/Relationship>)?/gi, '');
 }
 
 /**

@@ -7,6 +7,7 @@ import {
   validateXmlSafety,
   SecurityError,
   checkRateLimit,
+  sanitizeRelationshipXml,
 } from '@/lib/security';
 
 describe('LangCraft Security Architecture & Defenses', () => {
@@ -67,6 +68,12 @@ describe('LangCraft Security Architecture & Defenses', () => {
     expect(() => validateEntryPath('C:\\Windows\\System32\\calc.exe')).toThrowError(
       /Zip-Slip directory traversal/
     );
+  });
+
+  it('strips external OOXML relationships before the renderer can request them', () => {
+    const rels =
+      '<Relationships><Relationship Id="rId1" Target="https://evil.example/a.png" TargetMode="External"/></Relationships>';
+    expect(sanitizeRelationshipXml(rels)).not.toContain('evil.example');
   });
 
   // Rate Limiting Assertion

@@ -47,3 +47,11 @@
    - Any external references in `word/_rels/*.rels` pointing outside the document package must be stripped or ignored.
 5. **Ephemeral Storage & Privacy:**
    - Zero data retention. Conversion takes place in-memory or in UUID-scoped temporary workspaces that are unconditionally cleaned up in a `finally` block.
+
+---
+
+## 4. Delivery Rules Reaffirmed — 2026-10-16
+
+1. PDFs may not contain LangCraft diagnostic prose, counts, manifests, or validation watermarks.
+2. Only Google font hosts are allowed renderer egress; OOXML relationships must remain internal.
+3. Exact local ZIP headers are required at client and server boundaries: 50 4B 03 04.

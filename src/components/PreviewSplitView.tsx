@@ -91,7 +91,7 @@ export const PreviewSplitView: React.FC<PreviewSplitViewProps> = ({
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-[#2383E2] hover:bg-[#1f73c7] text-white text-xs font-medium shadow-sm transition-colors disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
-            <span>Download Verified PDF</span>
+            <span>Download Original Layout PDF</span>
           </button>
         </div>
       </div>

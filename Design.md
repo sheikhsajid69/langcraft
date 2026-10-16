@@ -76,3 +76,9 @@ The LangCraft interface embodies the clean, minimalist, information-dense aesthe
 - Top Action Bar:
   - Status Badge: `🛡️ Verified Zero-Tofu (0 \uFFFD | 0 .notdef)`
   - Action Button: Notion-style primary button (`Download Verified PDF`).
+
+### 4.6 Remediation Notes — 2026-10-16
+
+- Epic Elephant is rendered as a 24px workspace/breadcrumb avatar and a 72px page emblem with the requested rounded hairline treatment.
+- The sidebar is 240px, top bar is 45px, and the main page is a max-w-5xl document column.
+- The primary export action reads Download Original Layout PDF.

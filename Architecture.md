@@ -82,3 +82,9 @@ Vijaya                        ────>    Noto Sans Tamil
   - Verifies `/ToUnicode` CMap streams in embedded fonts.
   - Checks for non-rendered `.notdef` character fallback sequences.
   - Confirms embedded font subset dictionaries exist for each script detected in the source OOXML document.
+
+---
+
+## 3. Rendering and Egress Boundary — 2026-10-16
+
+POST /api/inspect returns diagnostics only. POST /api/convert returns Chromium PDF bytes directly; it never creates a diagnostic page. Playwright permits only Google font hosts, while normalized OOXML has no external relationships.
