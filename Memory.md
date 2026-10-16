@@ -126,3 +126,4 @@
 - Removed external OOXML relationships during normalization and abort non-font browser egress.
 - Tightened upload validation to PK 03 04 at the client and server boundary.
 - Verification: npx tsc --noEmit, npm run lint, and npm test passed; 13 tests total.
+- Git: commit 33595b1 was pushed to origin/main. A prior production build completed successfully; after the metadataBase warning fix, the repeat build reached ENOSPC writing Next's disposable cache because the host C: drive had no free space.
