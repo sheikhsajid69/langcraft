@@ -7,13 +7,13 @@ export const metadata: Metadata = {
   description:
     'Convert Hindi, Kannada, Telugu, Tamil, and Sanskrit Word documents into pixel-perfect PDFs with zero boxes.',
   icons: {
-    icon: '/Epic-Elephant-langcraft.png',
-    shortcut: '/Epic-Elephant-langcraft.png',
-    apple: '/Epic-Elephant-langcraft.png',
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
   },
   openGraph: {
     title: 'LangCraft — Zero-Tofu Indic DOCX-to-PDF Engine',
-    images: ['/Epic-Elephant-langcraft.png'],
+    images: ['/logo.png'],
   },
 };
 

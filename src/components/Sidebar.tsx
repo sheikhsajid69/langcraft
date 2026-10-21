@@ -58,7 +58,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#37352F]/10 dark:border-white/10">
           <div className="flex items-center gap-2">
             <Image
-              src="/Epic-Elephant-langcraft.png"
+              src="/logo.png"
               alt="LangCraft Workspace"
               width={24}
               height={24}

@@ -25,7 +25,7 @@ export const Topbar: React.FC<TopbarProps> = ({
       {/* Notion Breadcrumbs */}
       <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2 text-xs">
         <Image
-          src="/Epic-Elephant-langcraft.png"
+          src="/logo.png"
           alt=""
           width={24}
           height={24}

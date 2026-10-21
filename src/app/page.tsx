@@ -249,7 +249,7 @@ export default function Home() {
           {/* Page Title & Callout Header */}
           <header className="space-y-3">
             <Image
-              src="/Epic-Elephant-langcraft.png"
+              src="/logo.png"
               alt="LangCraft"
               width={72}
               height={72}
