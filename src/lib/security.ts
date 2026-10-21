@@ -21,7 +21,7 @@ export interface SecurityInspectionResult {
 export const SECURITY_LIMITS = {
   MAX_FILE_SIZE_BYTES: 25 * 1024 * 1024, // 25 MB
   MAX_UNCOMPRESSED_PAYLOAD_BYTES: 100 * 1024 * 1024, // 100 MB
-  MAX_COMPRESSION_RATIO: 100, // 100:1 â€” real DOCX files with verbose OOXML text tables can exceed 40:1
+  MAX_COMPRESSION_RATIO: 100, // 100:1 - real DOCX files with verbose OOXML text tables can exceed 40:1
   MAX_ZIP_ENTRIES: 1000,
 };
 
@@ -72,12 +72,12 @@ export function validateEntryPath(entryPath: string): void {
 
 /**
  * Validates XML string for XXE (external entity, DTD expansion, SYSTEM, PUBLIC).
- * Only matches actual XML DTD/entity constructs — NOT bare occurrences of the words
+ * Only matches actual XML DTD/entity constructs  -  NOT bare occurrences of the words
  * "SYSTEM" or "PUBLIC" in document text, font names, or namespace URIs.
  * Real XXE requires <!DOCTYPE or <!ENTITY followed by those keywords.
  */
 export function validateXmlSafety(xmlString: string, filename: string = 'document.xml'): void {
-  // <!DOCTYPE and <!ENTITY are never valid in OOXML — reject unconditionally
+  // <!DOCTYPE and <!ENTITY are never valid in OOXML  -  reject unconditionally
   if (/<!DOCTYPE[\s>]/i.test(xmlString) || /<!ENTITY[\s%]/i.test(xmlString)) {
     throw new SecurityError(
       `Security violation: XXE payload detected with <!DOCTYPE or <!ENTITY in ${filename}`,
