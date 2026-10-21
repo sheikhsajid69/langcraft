@@ -21,7 +21,7 @@ export interface SecurityInspectionResult {
 export const SECURITY_LIMITS = {
   MAX_FILE_SIZE_BYTES: 25 * 1024 * 1024, // 25 MB
   MAX_UNCOMPRESSED_PAYLOAD_BYTES: 100 * 1024 * 1024, // 100 MB
-  MAX_COMPRESSION_RATIO: 40, // 40:1
+  MAX_COMPRESSION_RATIO: 100, // 100:1 — real DOCX files with verbose OOXML text tables can exceed 40:1
   MAX_ZIP_ENTRIES: 1000,
 };
 
@@ -164,7 +164,7 @@ export async function inspectZipArchive(
 
   if (compressionRatio > SECURITY_LIMITS.MAX_COMPRESSION_RATIO) {
     throw new SecurityError(
-      `Security violation: Suspicious compression ratio (${compressionRatio.toFixed(1)}:1) exceeds 40:1 threshold. Possible Zip-Bomb.`,
+      `Security violation: Suspicious compression ratio (${compressionRatio.toFixed(1)}:1) exceeds 100:1 threshold. Possible Zip-Bomb.`,
       400
     );
   }

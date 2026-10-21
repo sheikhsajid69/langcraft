@@ -54,7 +54,18 @@
 
 ---
 
-## 2026-10-16 Remediation Pass
+## 2026-10-21 Remediation Pass (Session Restart Recovery)
+
+- [x] MAX_COMPRESSION_RATIO fixed from 40 → 100 in `src/lib/security.ts` (real DOCX files exceed 40:1)
+- [x] Error message updated to reference 100:1 threshold
+- [x] `DiagnosticTable.tsx` upgraded with Notion-authentic colored script pills (Hindi=amber, Sanskrit=purple, Kannada=yellow-orange, Telugu=blue, Tamil=green, Mixed=brown)
+- [x] Removed unused `Tag` and `Hash` imports from `DiagnosticTable.tsx`
+- [x] Gate check: `npx tsc --noEmit` → 0 errors ✅
+- [x] Gate check: `npm run lint` → No ESLint warnings or errors ✅
+- [x] Gate check: `npm test` → 13/13 passing ✅ (TC-01 through TC-11, security suite)
+- [x] Gate check: `npm run build` → Compiled successfully, all 6 routes generated ✅
+- [x] Committed and pushed to origin/main
+
 
 - [x] Phase 0 — Re-audited repository, renderer, routes, blueprints, tests, and brand asset.
 - [x] Phase 1 — Wired Epic Elephant into public assets, metadata, favicon, and workspace chrome.

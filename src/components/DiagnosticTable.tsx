@@ -7,13 +7,26 @@ import {
   ArrowRight,
   ShieldCheck,
   FileCode,
-  Tag,
-  Hash,
 } from 'lucide-react';
 import { DocumentDiagnostic } from '@/types';
 
 interface DiagnosticTableProps {
   diagnostic: DocumentDiagnostic;
+}
+
+/** Notion-style colored pill for each Indic script */
+const SCRIPT_PILL: Record<string, string> = {
+  Hindi:     'bg-[#FDECC8] text-[#CB912F]',       // amber
+  Sanskrit:  'bg-[#E8DEEE] text-[#9065B0]',       // purple
+  Kannada:   'bg-[#FDECCE] text-[#C07926]',       // yellow-orange
+  Telugu:    'bg-[#D3E5EF] text-[#337EA9]',       // blue
+  Tamil:     'bg-[#DBEDDB] text-[#448361]',       // green
+  Mixed:     'bg-[#EEE0DA] text-[#9F6B53]',       // brown
+  General:   'bg-[#EFEFEF] text-[#787774]',       // gray
+};
+
+function scriptPillClass(script: string): string {
+  return SCRIPT_PILL[script] ?? SCRIPT_PILL['General']!;
 }
 
 export const DiagnosticTable: React.FC<DiagnosticTableProps> = ({ diagnostic }) => {
@@ -49,8 +62,7 @@ export const DiagnosticTable: React.FC<DiagnosticTableProps> = ({ diagnostic }) 
           <span className="text-[10px] text-[#787774] dark:text-[#9B9B9B] uppercase block">
             Primary Script
           </span>
-          <span className="inline-flex items-center gap-1 font-medium text-[#2383E2]">
-            <Tag className="w-3 h-3" />
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-medium text-[11px] ${scriptPillClass(diagnostic.primaryScript)}`}>
             {diagnostic.primaryScript}
           </span>
         </div>
@@ -100,7 +112,7 @@ export const DiagnosticTable: React.FC<DiagnosticTableProps> = ({ diagnostic }) 
                   </div>
                 </td>
                 <td className="py-2.5 px-4">
-                  <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-[#37352F]/5 dark:bg-white/5 text-[#37352F] dark:text-[#D4D4D4]">
+                  <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium ${scriptPillClass(mapping.script)}`}>
                     {mapping.script}
                   </span>
                 </td>

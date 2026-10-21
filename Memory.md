@@ -127,3 +127,22 @@
 - Tightened upload validation to PK 03 04 at the client and server boundary.
 - Verification: npx tsc --noEmit, npm run lint, and npm test passed; 13 tests total.
 - Git: commit 33595b1 was pushed to origin/main. A prior production build completed successfully; after the metadataBase warning fix, the repeat build reached ENOSPC writing Next's disposable cache because the host C: drive had no free space.
+
+### [2026-10-21 Session Restart Recovery & Hardening]
+- **Date & Time:** 2026-10-21T12:35:00+05:30
+- **Context:** Server restarted; all previous subagents killed. Rolled-back codebase confirmed at commit `2e943e9`. Playwright Chromium verified operational. 13/13 tests passing.
+- **Fixes Applied:**
+  - `src/lib/security.ts`: `MAX_COMPRESSION_RATIO` corrected from 40 → **100** (real `.docx` files with large OOXML text tables can compress at ratios beyond 40:1, causing false zip-bomb rejections on legitimate documents).
+  - Error message in `inspectZipArchive` updated to reference 100:1 threshold.
+  - `src/components/DiagnosticTable.tsx`: Added Notion-authentic colored `SCRIPT_PILL` map with per-script colors — Hindi=amber `#CB912F`, Sanskrit=purple `#9065B0`, Kannada=yellow-orange `#C07926`, Telugu=blue `#337EA9`, Tamil=green `#448361`, Mixed=brown `#9F6B53`. Both the Primary Script meta pill and font-mapping table rows now use these Notion property colors.
+  - Removed unused `Tag` and `Hash` Lucide imports.
+- **Verification Gates (All Passed):**
+  - `npx tsc --noEmit` → 0 errors ✅
+  - `npm run lint` → No ESLint warnings or errors ✅
+  - `npm test` → 13/13 passing (TC-01 to TC-11, 5 security tests) ✅
+  - `npm run build` → Next.js 14.2.35 compiled successfully; 6 routes generated ✅
+- **Known State:**
+  - `src/lib/pdf-engine.ts` — Stage B Playwright + docx-preview WYSIWYG rendering confirmed working with zero diagnostic watermarks
+  - `src/lib/docx-processor.ts` — Stage A OOXML font normalization confirmed correct with complete font substitution matrix
+  - `public/Epic-Elephant-langcraft.png` — Logo wired to sidebar, topbar, page header (72px), layout metadata
+  - All 6 blueprint files intact: `PRD.md`, `Architecture.md`, `Rules.md`, `Phases.md`, `Design.md`, `Memory.md`
