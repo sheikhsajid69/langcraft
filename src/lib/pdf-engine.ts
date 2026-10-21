@@ -181,15 +181,24 @@ export async function renderDocxToPdf(options: RenderPdfOptions): Promise<Buffer
 
     await page.setContent(htmlShell, { waitUntil: 'domcontentloaded' });
 
-    // Inject JSZip and docx-preview scripts
-    const jszipPath = path.join(process.cwd(), 'node_modules/jszip/dist/jszip.min.js');
-    const docxPreviewPath = path.join(
-      process.cwd(),
-      'node_modules/docx-preview/dist/docx-preview.min.js'
-    );
+    // Resolve JSZip and docx-preview scripts (checks public/vendor first, then node_modules)
+    function getVendorScript(vendorRelative: string, nodeModulesRelative: string): string {
+      const candidates = [
+        path.join(process.cwd(), vendorRelative),
+        path.join(process.cwd(), nodeModulesRelative),
+        path.join(__dirname, '..', '..', vendorRelative),
+        path.join(__dirname, '..', '..', nodeModulesRelative),
+      ];
+      for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+          return fs.readFileSync(candidate, 'utf-8');
+        }
+      }
+      throw new Error(`Required vendor script could not be located in ${candidates.join(', ')}`);
+    }
 
-    const jszipJs = await fs.promises.readFile(jszipPath, 'utf-8');
-    const docxPreviewJs = await fs.promises.readFile(docxPreviewPath, 'utf-8');
+    const jszipJs = getVendorScript('public/vendor/jszip.min.js', 'node_modules/jszip/dist/jszip.min.js');
+    const docxPreviewJs = getVendorScript('public/vendor/docx-preview.min.js', 'node_modules/docx-preview/dist/docx-preview.min.js');
 
     await page.addScriptTag({ content: jszipJs });
     await page.addScriptTag({ content: docxPreviewJs });
