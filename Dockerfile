@@ -1,10 +1,13 @@
 # =========================================================================
 # LangCraft Production Multi-Stage Dockerfile
-# With Native Linux HarfBuzz, Pango, and Google Noto Indic Font Stack
+# Native Linux HarfBuzz, Pango, Google Noto Indic Fonts + Playwright Chromium
 # =========================================================================
 
 FROM node:20-bookworm-slim AS base
 WORKDIR /app
+
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # Install system dependencies: HarfBuzz, Pango, Fontconfig, and Google Noto Fonts
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -20,10 +23,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy custom font substitution matrix to fontconfig directory
-COPY fonts.conf /etc/fonts/local.conf
+# Install Playwright Chromium OS dependencies
+RUN npx --yes playwright install-deps chromium && \
+    rm -rf /var/lib/apt/lists/*
 
-# Rebuild font cache so HarfBuzz discovers all Noto Indic substitutions immediately
+# Copy custom font substitution matrix
+COPY fonts.conf /etc/fonts/local.conf
 RUN fc-cache -f -v
 
 # -------------------------------------------------------------------------
@@ -35,15 +40,15 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-COPY . .
+# Download Chromium browser into /ms-playwright
+RUN npx playwright install chromium
 
-# Build Next.js application
-ENV NEXT_TELEMETRY_DISABLED=1
+COPY . .
 ENV NODE_ENV=production
 RUN npm run build
 
 # -------------------------------------------------------------------------
-# Production Runner Stage
+# Runner Stage
 # -------------------------------------------------------------------------
 FROM base AS runner
 WORKDIR /app
@@ -51,18 +56,22 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # Non-root user for enterprise security
 RUN groupadd -g 1001 nodejs && \
     useradd -s /bin/bash -u 1001 -g nodejs nextjs
 
+# Copy Playwright Chromium browser binary
+COPY --from=builder --chown=nextjs:nodejs /ms-playwright /ms-playwright
+
+# Copy Next.js standalone build artifacts
 COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["node", "server.js"]
