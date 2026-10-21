@@ -88,4 +88,10 @@ describe('LangCraft Security Architecture & Defenses', () => {
     // Should cap at MAX_TOKENS (60)
     expect(allowedCount).toBeLessThanOrEqual(60);
   });
-});
+
+  // TC-07b: False-Positive Regression — plain "PUBLIC"/"SYSTEM" in document text must NOT be rejected
+  it('TC-07b (False-Positive Regression): allows XML containing "PUBLIC" or "SYSTEM" as plain text (not XXE)', () => {
+    const legitimateXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Public Health System Report 2026</w:t></w:r></w:p></w:body></w:document>`;
+    // Must NOT throw — "public"/"system" are plain text, not XXE constructs
+    expect(() => validateXmlSafety(legitimateXml, 'word/document.xml')).not.toThrow();
+  });});

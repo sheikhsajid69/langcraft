@@ -71,26 +71,30 @@ export function validateEntryPath(entryPath: string): void {
 }
 
 /**
- * Validates XML string for XXE (external entity, DTD expansion, SYSTEM, PUBLIC)
+ * Validates XML string for XXE (external entity, DTD expansion, SYSTEM, PUBLIC).
+ * Only matches actual XML DTD/entity constructs — NOT bare occurrences of the words
+ * "SYSTEM" or "PUBLIC" in document text, font names, or namespace URIs.
+ * Real XXE requires <!DOCTYPE or <!ENTITY followed by those keywords.
  */
 export function validateXmlSafety(xmlString: string, filename: string = 'document.xml'): void {
-  const upper = xmlString.toUpperCase();
-
-  if (upper.includes('<!DOCTYPE') || upper.includes('<!ENTITY')) {
+  // <!DOCTYPE and <!ENTITY are never valid in OOXML — reject unconditionally
+  if (/<!DOCTYPE[\s>]/i.test(xmlString) || /<!ENTITY[\s%]/i.test(xmlString)) {
     throw new SecurityError(
       `Security violation: XXE payload detected with <!DOCTYPE or <!ENTITY in ${filename}`,
       400
     );
   }
 
-  if (upper.includes('SYSTEM')) {
+  // SYSTEM/PUBLIC are only dangerous inside a DTD declaration.
+  // Match them only when preceded by <!DOCTYPE or <!ENTITY context markers.
+  if (/<!(?:DOCTYPE|ENTITY)[^>]*\bSYSTEM\b/i.test(xmlString)) {
     throw new SecurityError(
       `Security violation: XXE SYSTEM entity attempt detected in ${filename}`,
       400
     );
   }
 
-  if (upper.includes('PUBLIC')) {
+  if (/<!(?:DOCTYPE|ENTITY)[^>]*\bPUBLIC\b/i.test(xmlString)) {
     throw new SecurityError(
       `Security violation: XXE PUBLIC entity attempt detected in ${filename}`,
       400
