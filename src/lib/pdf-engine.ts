@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 120;
 
 export interface RenderPdfOptions {
-  normalizedDocxBuffer: Buffer;
+  normalizedDocxBuffer: Buffer | Uint8Array;
   filename: string;
   pageSizeCss?: string;
   expectedScripts?: IndicScript[];
@@ -204,7 +204,10 @@ export async function renderDocxToPdf(options: RenderPdfOptions): Promise<Buffer
     await page.addScriptTag({ content: docxPreviewJs });
 
     // Render normalized DOCX buffer inside Chromium
-    const base64Data = normalizedDocxBuffer.toString('base64');
+    const base64Data =
+      normalizedDocxBuffer instanceof Buffer
+        ? normalizedDocxBuffer.toString('base64')
+        : Buffer.from(normalizedDocxBuffer).toString('base64');
     await page.evaluate(async (b64) => {
       const bin = atob(b64);
       const len = bin.length;

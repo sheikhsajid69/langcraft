@@ -29,8 +29,8 @@ export const SECURITY_LIMITS = {
  * 1. Magic-Byte Verification:
  * Validates PKZIP signature bytes (0x50 0x4B 0x03 0x04) and required OOXML parts.
  */
-export function verifyZipMagicBytes(buffer: Buffer | Uint8Array): void {
-  const bytes = buffer instanceof Buffer ? buffer : Buffer.from(buffer);
+export function verifyZipMagicBytes(buffer: Buffer | Uint8Array | ArrayBuffer): void {
+  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
 
   if (bytes.length < 4) {
     throw new SecurityError('Uploaded payload too small to be a valid file.');
@@ -115,13 +115,15 @@ export function sanitizeRelationshipXml(relsXml: string): string {
  * Inspects a zip archive against Zip-Bomb, entry limits, and directory traversal
  */
 export async function inspectZipArchive(
-  buffer: Buffer | Uint8Array
+  buffer: Buffer | Uint8Array | ArrayBuffer
 ): Promise<SecurityInspectionResult> {
   verifyZipMagicBytes(buffer);
 
-  if (buffer.length > SECURITY_LIMITS.MAX_FILE_SIZE_BYTES) {
+  const byteLength = 'byteLength' in buffer ? buffer.byteLength : (buffer as any).length || 0;
+
+  if (byteLength > SECURITY_LIMITS.MAX_FILE_SIZE_BYTES) {
     throw new SecurityError(
-      `File size (${(buffer.length / (1024 * 1024)).toFixed(2)} MB) exceeds limit of 25 MB.`,
+      `File size (${(byteLength / (1024 * 1024)).toFixed(2)} MB) exceeds limit of 25 MB.`,
       400
     );
   }
@@ -164,7 +166,7 @@ export async function inspectZipArchive(
   }
 
   const compressionRatio =
-    buffer.length > 0 ? totalUncompressedSize / buffer.length : 1;
+    byteLength > 0 ? totalUncompressedSize / byteLength : 1;
 
   if (compressionRatio > SECURITY_LIMITS.MAX_COMPRESSION_RATIO) {
     throw new SecurityError(
@@ -173,8 +175,11 @@ export async function inspectZipArchive(
     );
   }
 
-  // Verify mandatory OOXML files exist
-  if (!zip.file('[Content_Types].xml') || !zip.file('word/document.xml')) {
+  // Verify mandatory OOXML files exist (case-insensitive)
+  const hasContentTypes = Object.keys(zip.files).some((p) => p.toLowerCase() === '[content_types].xml');
+  const hasDocumentXml = Object.keys(zip.files).some((p) => p.toLowerCase() === 'word/document.xml');
+
+  if (!hasContentTypes || !hasDocumentXml) {
     throw new SecurityError(
       'Invalid DOCX package: missing [Content_Types].xml or word/document.xml.',
       400

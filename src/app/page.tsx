@@ -8,19 +8,24 @@ import { Dropzone } from '@/components/Dropzone';
 import { DiagnosticTable } from '@/components/DiagnosticTable';
 import { FontRegistryModal } from '@/components/FontRegistryModal';
 import { PreviewSplitView } from '@/components/PreviewSplitView';
+import { Footer } from '@/components/Footer';
 import { DocumentDiagnostic, IndicScript } from '@/types';
-import { ShieldAlert } from 'lucide-react';
+import { normalizeDocxBuffer } from '@/lib/docx-processor';
+import { ShieldAlert, AlertCircle, RefreshCw } from 'lucide-react';
 
 export default function Home() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedScriptFilter, setSelectedScriptFilter] = useState<IndicScript | 'All'>('All');
   const [isFontRegistryOpen, setIsFontRegistryOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingPdf, setIsLoadingPdf] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [diagnostic, setDiagnostic] = useState<DocumentDiagnostic | null>(null);
   const [htmlContent, setHtmlContent] = useState<string | null>(null);
+  const [extractedText, setExtractedText] = useState<string | undefined>(undefined);
+  const [normalizedDocxBlob, setNormalizedDocxBlob] = useState<Blob | undefined>(undefined);
   const [pdfUrl, setPdfUrl] = useState<string | undefined>(undefined);
   const [pdfFilename, setPdfFilename] = useState<string>('langcraft-output.pdf');
 
@@ -35,6 +40,13 @@ export default function Home() {
       status: 'Verified' | 'Error';
     }>
   >([]);
+
+  // Automatically open sidebar on desktop screens (>= 768px), keep closed on mobile
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+      setIsSidebarOpen(true);
+    }
+  }, []);
 
   // Keyboard shortcut Ctrl+\ to toggle sidebar
   useEffect(() => {
@@ -76,49 +88,96 @@ export default function Home() {
     }
     setDiagnostic(null);
     setHtmlContent(null);
+    setExtractedText(undefined);
+    setNormalizedDocxBlob(undefined);
     setPdfUrl(undefined);
     setError(null);
+    setIsLoading(false);
+    setIsLoadingPdf(false);
   };
 
+  /**
+   * Resilient dual-mode document processor:
+   * 1. Instant client-side OOXML normalization and diagnostic extraction (<50ms).
+   * 2. Background HarfBuzz vector PDF rendering via /api/convert.
+   */
   const processFile = async (file: File) => {
     setIsLoading(true);
+    setIsLoadingPdf(true);
     setError(null);
 
+    const targetPdfName = `${file.name.replace(/\.docx$/i, '')}.pdf`;
+    setPdfFilename(targetPdfName);
+
+    let clientDiagnostic: DocumentDiagnostic | null = null;
+
     try {
+      // Step 1: Instant Client-Side Parsing & Diagnostic Extraction
+      const arrayBuffer = await file.arrayBuffer();
+      try {
+        const localParsed = await normalizeDocxBuffer(arrayBuffer, file.name);
+        clientDiagnostic = localParsed.diagnostic;
+        setDiagnostic(localParsed.diagnostic);
+        setHtmlContent(localParsed.htmlContent);
+        setExtractedText(localParsed.extractedText);
+
+        const cleanBlob = new Blob([localParsed.normalizedBuffer as unknown as BlobPart], {
+          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        });
+        setNormalizedDocxBlob(cleanBlob);
+      } catch (clientParseErr) {
+        console.warn('Client-side fast parse note:', clientParseErr);
+      }
+
+      // Step 2: Prepare FormData for server conversion
       const formData = new FormData();
       formData.append('file', file);
       if (selectedScriptFilter !== 'All') {
         formData.append('targetScript', selectedScriptFilter);
       }
 
-      // Step 1: Query /api/inspect for diagnostic metadata
-      const inspectRes = await fetch('/api/inspect', {
-        method: 'POST',
-        body: formData,
-      });
+      // If client-side parse failed, fallback to /api/inspect
+      if (!clientDiagnostic) {
+        try {
+          const inspectRes = await fetch('/api/inspect', {
+            method: 'POST',
+            body: formData,
+          });
 
-      if (!inspectRes.ok) {
-        const errJson = await inspectRes.json().catch(() => ({ error: 'Inspection failed' }));
-        throw new Error(errJson.error || `Inspection error (HTTP ${inspectRes.status})`);
+          if (inspectRes.ok) {
+            const inspectData = await inspectRes.json();
+            if (inspectData.success && inspectData.diagnostic) {
+              clientDiagnostic = inspectData.diagnostic;
+              setDiagnostic(inspectData.diagnostic);
+              setHtmlContent(inspectData.htmlContent);
+            }
+          }
+        } catch (inspectNetErr) {
+          console.warn('Inspect fallback fetch warning:', inspectNetErr);
+        }
       }
 
-      const inspectData = await inspectRes.json();
-      if (!inspectData.success) {
-        throw new Error(inspectData.error || 'Document inspection failed');
-      }
+      // Initial loading finished (UI displays diagnostic and preview immediately)
+      setIsLoading(false);
 
-      setDiagnostic(inspectData.diagnostic);
-      setHtmlContent(inspectData.htmlContent);
-
-      // Step 2: Query /api/convert for true 1:1 vector PDF binary stream
+      // Step 3: Server-side Headless Chromium HarfBuzz PDF Conversion
       const convertRes = await fetch('/api/convert', {
         method: 'POST',
         body: formData,
       });
 
       if (!convertRes.ok) {
-        const errJson = await convertRes.json().catch(() => ({ error: 'Conversion failed' }));
-        throw new Error(errJson.error || `Conversion error (HTTP ${convertRes.status})`);
+        let errMsg = `PDF rendering error (HTTP ${convertRes.status})`;
+        try {
+          const errJson = await convertRes.json();
+          if (errJson.error) errMsg = errJson.error;
+        } catch {
+          if (convertRes.status === 502 || convertRes.status === 504 || convertRes.status === 503) {
+            errMsg =
+              'The PDF rendering server is starting up or temporarily busy. Your document is fully inspected and viewable below; please retry conversion in a few moments.';
+          }
+        }
+        throw new Error(errMsg);
       }
 
       const pdfBlob = await convertRes.blob();
@@ -132,15 +191,12 @@ export default function Home() {
       activePdfUrlRef.current = newPdfUrl;
       setPdfUrl(newPdfUrl);
 
-      const targetFilename = `${file.name.replace(/\.docx$/i, '')}.pdf`;
-      setPdfFilename(targetFilename);
-
       setConversionHistory((prev) => [
         {
           id: Math.random().toString(36).substring(2, 9),
           filename: file.name,
           timestamp: new Date().toLocaleTimeString(),
-          script: inspectData.diagnostic.primaryScript,
+          script: clientDiagnostic?.primaryScript || 'Indic',
           status: 'Verified',
         },
         ...prev.slice(0, 9),
@@ -150,13 +206,18 @@ export default function Home() {
       setError(msg);
     } finally {
       setIsLoading(false);
+      setIsLoadingPdf(false);
     }
   };
 
+  /**
+   * Loads a bundled pre-configured Indic benchmark sample
+   */
   const handleLoadSample = async (
     sampleScript: 'Hindi' | 'Sanskrit' | 'Kannada' | 'Telugu' | 'Tamil' | 'Mixed'
   ) => {
     setIsLoading(true);
+    setIsLoadingPdf(true);
     setError(null);
 
     try {
@@ -165,18 +226,27 @@ export default function Home() {
         method: 'GET',
       });
 
-      if (!inspectRes.ok) {
-        const errJson = await inspectRes.json().catch(() => ({ error: 'Sample inspect failed' }));
-        throw new Error(errJson.error || `Sample inspect error (HTTP ${inspectRes.status})`);
+      let inspectData: any = null;
+      if (inspectRes.ok) {
+        inspectData = await inspectRes.json();
+      } else {
+        let inspectErrMsg = `Sample inspect error (HTTP ${inspectRes.status})`;
+        try {
+          const errJson = await inspectRes.json();
+          if (errJson.error) inspectErrMsg = errJson.error;
+        } catch {
+          // ignore
+        }
+        throw new Error(inspectErrMsg);
       }
 
-      const inspectData = await inspectRes.json();
-      if (!inspectData.success) {
-        throw new Error(inspectData.error || 'Sample inspect failed');
+      if (!inspectData?.success) {
+        throw new Error(inspectData?.error || 'Sample inspect failed');
       }
 
       setDiagnostic(inspectData.diagnostic);
       setHtmlContent(inspectData.htmlContent);
+      setIsLoading(false);
 
       // Step 2: Convert sample to 1:1 PDF binary
       const convertRes = await fetch(`/api/convert?sample=${sampleScript.toLowerCase()}`, {
@@ -184,8 +254,14 @@ export default function Home() {
       });
 
       if (!convertRes.ok) {
-        const errJson = await convertRes.json().catch(() => ({ error: 'Sample conversion failed' }));
-        throw new Error(errJson.error || `Sample convert error (HTTP ${convertRes.status})`);
+        let convertErrMsg = `Sample convert error (HTTP ${convertRes.status})`;
+        try {
+          const errJson = await convertRes.json();
+          if (errJson.error) convertErrMsg = errJson.error;
+        } catch {
+          // ignore
+        }
+        throw new Error(convertErrMsg);
       }
 
       const pdfBlob = await convertRes.blob();
@@ -216,12 +292,13 @@ export default function Home() {
       setError(msg);
     } finally {
       setIsLoading(false);
+      setIsLoadingPdf(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex bg-white dark:bg-[#191919] text-[#37352F] dark:text-[#D4D4D4]">
-      {/* Notion Collapsible Sidebar */}
+    <div className="min-h-screen flex flex-col bg-white dark:bg-[#191919] text-[#37352F] dark:text-[#D4D4D4]">
+      {/* Notion Collapsible Sidebar with Mobile Backdrop */}
       <Sidebar
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen((prev) => !prev)}
@@ -231,10 +308,10 @@ export default function Home() {
         conversionHistory={conversionHistory}
       />
 
-      {/* Main Workspace Canvas */}
+      {/* Main Workspace Canvas (Responsive md:pl-60 offset) */}
       <div
         className={`flex-1 flex flex-col min-w-0 transition-all duration-200 ease-in-out ${
-          isSidebarOpen ? 'pl-60' : 'pl-0'
+          isSidebarOpen ? 'md:pl-60' : 'pl-0'
         }`}
       >
         <Topbar
@@ -243,22 +320,36 @@ export default function Home() {
           onReset={handleReset}
           isDarkMode={isDarkMode}
           onToggleDarkMode={handleToggleDarkMode}
+          onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
         />
 
-        <main className="flex-1 w-full max-w-5xl mx-auto space-y-8 px-6 py-10 md:px-12">
-          {/* Page Title & Callout Header */}
+        <main className="flex-1 w-full max-w-5xl mx-auto space-y-6 sm:space-y-8 px-4 sm:px-6 md:px-12 py-6 sm:py-10">
+          {/* Notion Page Header Emblem & Workspace Title */}
           <header className="space-y-3">
-            <Image
-              src="/logo.png"
-              alt="LangCraft"
-              width={72}
-              height={72}
-              className="h-[72px] w-[72px] rounded-lg border border-black/5 shadow-sm dark:border-white/10"
-            />
-            <h1 className="text-3xl font-bold tracking-tight text-[#37352F] dark:text-white sm:text-4xl">
+            <div className="flex items-start justify-between gap-4">
+              <Image
+                src="/logo.png"
+                alt="LangCraft Logo"
+                width={72}
+                height={72}
+                priority
+                className="h-14 w-14 sm:h-[72px] sm:w-[72px] rounded-xl border border-black/5 shadow-sm dark:border-white/10 shrink-0"
+              />
+              {diagnostic && (
+                <button
+                  onClick={handleReset}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-[#787774] hover:text-[#37352F] dark:text-[#9B9B9B] dark:hover:text-[#D4D4D4] hover:bg-[#37352F]/5 dark:hover:bg-white/5 transition-colors border border-[#37352F]/10 dark:border-white/10"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>New Document</span>
+                </button>
+              )}
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-[#37352F] dark:text-white">
               Indic DOCX-to-PDF Converter
             </h1>
-            <p className="max-w-3xl text-xs leading-relaxed text-[#787774] dark:text-[#9B9B9B]">
+            <p className="max-w-3xl text-xs sm:text-sm leading-relaxed text-[#787774] dark:text-[#9B9B9B]">
               LangCraft eliminates the empty box (<code className="font-mono text-[#D9730D]">.notdef</code> /{' '}
               <code className="font-mono text-[#D9730D]">\uFFFD</code>) corruption common in Microsoft Word
               DOCX exports by parsing OOXML run fonts, normalizing legacy ASCII encodings, and embedding
@@ -268,11 +359,11 @@ export default function Home() {
 
           {/* Error Banner */}
           {error && (
-            <div className="flex items-center gap-3 p-4 rounded-lg bg-[#E03E3E]/10 border border-[#E03E3E]/20 text-[#E03E3E] text-xs">
-              <ShieldAlert className="w-5 h-5 shrink-0" />
-              <div>
-                <p className="font-semibold">Conversion Error Encountered</p>
-                <p>{error}</p>
+            <div className="flex items-start gap-3 p-3.5 sm:p-4 rounded-lg bg-[#E03E3E]/10 border border-[#E03E3E]/20 text-[#E03E3E] text-xs leading-relaxed animate-in fade-in duration-200">
+              <ShieldAlert className="w-4 h-4 sm:w-5 sm:h-5 shrink-0 mt-0.5" />
+              <div className="space-y-1 min-w-0 flex-1">
+                <p className="font-semibold">Notice</p>
+                <p className="break-words">{error}</p>
               </div>
             </div>
           )}
@@ -299,10 +390,16 @@ export default function Home() {
                 pdfUrl={pdfUrl}
                 pdfFilename={pdfFilename}
                 diagnostic={diagnostic}
+                normalizedDocxBlob={normalizedDocxBlob}
+                extractedText={extractedText}
+                isLoadingPdf={isLoadingPdf}
               />
             </div>
           )}
         </main>
+
+        {/* Developer Attribution & Socials Footer */}
+        <Footer onOpenFontRegistry={() => setIsFontRegistryOpen(true)} />
       </div>
 
       {/* Font Registry Modal */}

@@ -7,11 +7,11 @@ import {
   Languages,
   Layers,
   History,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Sparkles,
   ExternalLink,
+  X,
 } from 'lucide-react';
 import { IndicScript } from '@/types';
 
@@ -47,38 +47,69 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenFontRegistry,
   conversionHistory,
 }) => {
+  const handleScriptClick = (script: IndicScript | 'All') => {
+    onSelectScriptFilter(script);
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      onToggle();
+    }
+  };
+
+  const handleRegistryClick = () => {
+    onOpenFontRegistry();
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      onToggle();
+    }
+  };
+
   return (
     <>
+      {/* Mobile Backdrop Overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs md:hidden transition-opacity duration-200"
+          onClick={onToggle}
+          aria-label="Close sidebar"
+        />
+      )}
+
+      {/* Main Sidebar Drawer */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-[#37352F]/10 dark:border-white/10 bg-[#F7F6F3] dark:bg-[#202020] transition-all duration-200 ease-in-out ${
-          isOpen ? 'w-60' : 'w-0 -translate-x-full'
+        className={`fixed inset-y-0 left-0 z-50 md:z-30 flex flex-col border-r border-[#37352F]/10 dark:border-white/10 bg-[#F7F6F3] dark:bg-[#202020] transition-all duration-200 ease-in-out shadow-xl md:shadow-none ${
+          isOpen
+            ? 'w-64 md:w-60 translate-x-0'
+            : 'w-0 -translate-x-full pointer-events-none'
         }`}
       >
-        {/* Workspace Brand */}
-        <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#37352F]/10 dark:border-white/10">
-          <div className="flex items-center gap-2">
+        {/* Workspace Brand Header */}
+        <div className="flex items-center justify-between px-3.5 py-3 border-b border-[#37352F]/10 dark:border-white/10">
+          <div className="flex items-center gap-2.5 min-w-0">
             <Image
               src="/logo.png"
               alt="LangCraft Workspace"
-              width={24}
-              height={24}
-              className="h-6 w-6 rounded-lg border border-black/5 shadow-sm dark:border-white/10"
+              width={26}
+              height={26}
+              className="h-6.5 w-6.5 shrink-0 rounded-lg border border-black/5 shadow-xs dark:border-white/10"
             />
-            <div className="flex flex-col">
-              <span className="font-semibold text-sm tracking-tight text-[#37352F] dark:text-[#D4D4D4]">
+            <div className="flex flex-col min-w-0">
+              <span className="font-semibold text-sm tracking-tight text-[#37352F] dark:text-[#D4D4D4] truncate">
                 LangCraft Workspace
               </span>
-              <span className="text-[11px] text-[#787774] dark:text-[#9B9B9B]">
+              <span className="text-[10px] text-[#787774] dark:text-[#9B9B9B] truncate">
                 Indic Typography Engine
               </span>
             </div>
           </div>
           <button
             onClick={onToggle}
-            className="p-1 rounded hover:bg-[#37352F]/10 dark:hover:bg-white/10 text-[#787774] dark:text-[#9B9B9B]"
-            title="Collapse Sidebar (Ctrl+\)"
+            className="p-1.5 rounded hover:bg-[#37352F]/10 dark:hover:bg-white/10 text-[#787774] dark:text-[#9B9B9B] transition-colors"
+            title="Close Sidebar (Ctrl+\)"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <span className="md:hidden">
+              <X className="w-4 h-4" />
+            </span>
+            <span className="hidden md:inline">
+              <ChevronLeft className="w-4 h-4" />
+            </span>
           </button>
         </div>
 
@@ -96,8 +127,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 return (
                   <button
                     key={s.id}
-                    onClick={() => onSelectScriptFilter(s.id)}
-                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-left transition-colors ${
+                    onClick={() => handleScriptClick(s.id)}
+                    className={`w-full flex items-center justify-between px-2.5 py-2 rounded text-left transition-colors min-h-[36px] ${
                       isSelected
                         ? 'bg-[#37352F]/10 dark:bg-white/10 font-semibold text-[#37352F] dark:text-white'
                         : 'text-[#37352F] dark:text-[#D4D4D4] hover:bg-[#37352F]/5 dark:hover:bg-white/5'
@@ -120,8 +151,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span>Typography Registry</span>
             </div>
             <button
-              onClick={onOpenFontRegistry}
-              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded text-[#37352F] dark:text-[#D4D4D4] hover:bg-[#37352F]/5 dark:hover:bg-white/5 transition-colors"
+              onClick={handleRegistryClick}
+              className="w-full flex items-center justify-between px-2.5 py-2 rounded text-[#37352F] dark:text-[#D4D4D4] hover:bg-[#37352F]/5 dark:hover:bg-white/5 transition-colors min-h-[36px]"
             >
               <div className="flex items-center gap-2">
                 <Sparkles className="w-3.5 h-3.5 text-[#2383E2]" />
@@ -156,7 +187,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         {item.filename}
                       </span>
                     </div>
-                    <span className="shrink-0 text-[10px] text-[#0F7B6C]">
+                    <span className="shrink-0 text-[10px] text-[#0F7B6C] font-medium">
                       {item.status}
                     </span>
                   </div>
@@ -175,7 +206,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center justify-between text-[10px] text-[#787774] dark:text-[#9B9B9B]">
             <span>LangCraft v1.0.0</span>
             <a
-              href="https://github.com/sheikhsajid69/langcraft.git"
+              href="https://github.com/sheikhsajid69/langcraft"
               target="_blank"
               rel="noreferrer"
               className="hover:underline flex items-center gap-0.5"
@@ -186,11 +217,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </aside>
 
-      {/* Toggle button when sidebar collapsed */}
+      {/* Floating Toggle button when sidebar collapsed on Desktop */}
       {!isOpen && (
         <button
           onClick={onToggle}
-          className="fixed bottom-4 left-4 z-40 p-2 rounded-md bg-[#F7F6F3] dark:bg-[#202020] border border-[#37352F]/15 dark:border-white/15 text-[#37352F] dark:text-[#D4D4D4] shadow-sm hover:bg-[#37352F]/10"
+          className="fixed bottom-4 left-4 z-20 hidden md:flex items-center gap-1 p-2 rounded-md bg-[#F7F6F3] dark:bg-[#202020] border border-[#37352F]/15 dark:border-white/15 text-[#37352F] dark:text-[#D4D4D4] shadow-xs hover:bg-[#37352F]/10 transition-colors"
           title="Expand Sidebar (Ctrl+\)"
         >
           <ChevronRight className="w-4 h-4" />

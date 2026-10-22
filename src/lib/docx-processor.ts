@@ -116,7 +116,7 @@ export interface ParsedDocxResult {
   diagnostic: DocumentDiagnostic;
   htmlContent: string;
   extractedText: string;
-  normalizedBuffer: Buffer;
+  normalizedBuffer: Buffer | Uint8Array;
   pageSizeCss?: string;
 }
 
@@ -128,10 +128,23 @@ export interface ParsedDocxResult {
  * 4. Repackages the modified OOXML into a clean, normalized .docx buffer for Chromium HarfBuzz rendering.
  */
 export async function normalizeDocxBuffer(
-  buffer: Buffer | ArrayBuffer,
+  buffer: Buffer | ArrayBuffer | Uint8Array,
   filename: string
 ): Promise<ParsedDocxResult> {
   const zip = await JSZip.loadAsync(buffer);
+
+  function findZipEntry(pathStr: string): JSZip.JSZipObject | null {
+    const direct = zip.file(pathStr);
+    if (direct) return direct;
+    const lower = pathStr.toLowerCase();
+    for (const p of Object.keys(zip.files)) {
+      const entry = zip.files[p];
+      if (entry && !entry.dir && p.toLowerCase() === lower) {
+        return entry;
+      }
+    }
+    return null;
+  }
 
   const originalFontsSet = new Set<string>();
   const legacyFontsDetectedSet = new Set<string>();
@@ -143,7 +156,7 @@ export async function normalizeDocxBuffer(
   ).length;
 
   // 1. Process word/fontTable.xml if present
-  const fontTableEntry = zip.file('word/fontTable.xml');
+  const fontTableEntry = findZipEntry('word/fontTable.xml');
   if (fontTableEntry) {
     let fontXml = await fontTableEntry.async('text');
     try {
@@ -163,11 +176,11 @@ export async function normalizeDocxBuffer(
       const regex = new RegExp(`(w:name=["'])${key}(["'])`, 'gi');
       fontXml = fontXml.replace(regex, `$1${mapping.targetFont}$2`);
     }
-    zip.file('word/fontTable.xml', fontXml);
+    zip.file(fontTableEntry.name, fontXml);
   }
 
   // 2. Process word/styles.xml if present
-  const stylesEntry = zip.file('word/styles.xml');
+  const stylesEntry = findZipEntry('word/styles.xml');
   if (stylesEntry) {
     let stylesXml = await stylesEntry.async('text');
     for (const [key, mapping] of Object.entries(FONT_SUBSTITUTION_MATRIX)) {
@@ -177,13 +190,13 @@ export async function normalizeDocxBuffer(
         .replace(new RegExp(`(w:cs=["'])${key}(["'])`, 'gi'), `$1${mapping.targetFont}$2`)
         .replace(new RegExp(`(w:eastAsia=["'])${key}(["'])`, 'gi'), `$1${mapping.targetFont}$2`);
     }
-    zip.file('word/styles.xml', stylesXml);
+    zip.file(stylesEntry.name, stylesXml);
   }
 
   // 3. Process word/document.xml
-  const docEntry = zip.file('word/document.xml');
+  const docEntry = findZipEntry('word/document.xml');
   if (!docEntry) {
-    throw new Error('Invalid DOCX: missing word/document.xml');
+    throw new Error('Invalid DOCX: missing word/document.xml in archive');
   }
 
   let docXml = await docEntry.async('text');
@@ -276,11 +289,12 @@ export async function normalizeDocxBuffer(
     }
   }
 
-  // Repackage normalized .docx buffer
-  const normalizedBuffer = await zip.generateAsync({
-    type: 'nodebuffer',
+  // Repackage normalized .docx buffer (safe in both Node.js and browser)
+  const normalizedU8 = await zip.generateAsync({
+    type: 'uint8array',
     compression: 'DEFLATE',
   });
+  const normalizedBuffer = typeof Buffer !== 'undefined' ? Buffer.from(normalizedU8) : normalizedU8;
 
   // Run linguistic script detection
   const detectedScriptResults = detectScriptsInText(fullExtractedText);
