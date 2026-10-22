@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
       filename,
       pageSizeCss: parsed.pageSizeCss,
       expectedScripts: parsed.diagnostic.detectedScripts,
+      embeddedFontFaces: parsed.embeddedFontFaces,
     });
 
     // 5. Zero-Tofu Invariant Validation on the pure document stream
@@ -106,6 +107,7 @@ export async function GET(req: NextRequest) {
       filename,
       pageSizeCss: parsed.pageSizeCss,
       expectedScripts: parsed.diagnostic.detectedScripts,
+      embeddedFontFaces: parsed.embeddedFontFaces,
     });
 
     const pdfFilename = `Sample_${script}.pdf`;

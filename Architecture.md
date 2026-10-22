@@ -88,3 +88,55 @@ Vijaya                        ────>    Noto Sans Tamil
 ## 3. Rendering and Egress Boundary — 2026-10-16
 
 POST /api/inspect returns diagnostics only. POST /api/convert returns Chromium PDF bytes directly; it never creates a diagnostic page. Playwright permits only Google font hosts, while normalized OOXML has no external relationships.
+
+---
+
+## 4. Layout Fidelity, Page Geometry & Typography Engine Upgrades — 2026-10-22
+
+### 4.1 Page Geometry & Native CSS @page Print Margins
+- Extracts exact dimensions from `<w:sectPr>`:
+  - Width: `w:pgSz[@w:w] / 1440` (default 8.268in for A4)
+  - Height: `w:pgSz[@w:h] / 1440` (default 11.693in for A4)
+  - Margins: `w:pgMar[@w:top] / 1440`, `w:pgMar[@w:bottom] / 1440`, `w:pgMar[@w:left] / 1440`, `w:pgMar[@w:right] / 1440` (default 1.000in)
+- Injects native CSS `@page` margin rules matching Word geometry exactly.
+- Resets `.docx-wrapper, section.docx` to `padding: 0 !important; margin: 0 !important; height: auto !important; overflow: visible !important;` so section boundaries never conflict with `@page` print margins or clip text lines.
+
+### 4.2 Horizontal Line Slicing Elimination Across Page Breaks
+- Calls `docx.renderAsync()` with `ignoreHeight: true` and `breakPages: false` to stop `docx-preview` from generating artificial fixed-height DOM containers.
+- Enforces CSS page-break rules:
+  ```css
+  p, li, blockquote, tr, img, figure {
+    page-break-inside: avoid;
+    break-inside: avoid-page;
+    orphans: 3;
+    widows: 3;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+    break-after: avoid-page;
+    page-break-inside: avoid;
+    break-inside: avoid-page;
+  }
+  ```
+- Native Chromium print pagination cleanly moves lines to the next page instead of horizontally slicing text across page boundaries.
+
+### 4.3 Embedded Font Extraction & ECMA-376 ODTTF De-obfuscation
+- Scans `word/fonts/*.odttf` and `word/fonts/*.ttf`.
+- For obfuscated `.odttf` fonts, maps `w:fontKey` GUIDs from `word/fontTable.xml` and relationships from `word/_rels/fontTable.xml.rels`.
+- Executes ECMA-376 Part 2 §8.5.1 de-obfuscation: parses 32-character GUID into 16 bytes, reverses byte order, and XORs the first 32 bytes of the font binary to recover the raw TrueType/OpenType font stream.
+- Injects recovered fonts directly as Base64 `@font-face` rules into the rendering page.
+
+### 4.4 Non-Destructive Composite Font Stacks
+- Preserves original font names in `<w:rFonts>` first in stack, followed by metric-matched Google Noto OpenType fonts.
+- Composite font stacks map serif vs. sans Indic typefaces accurately:
+  - `Mangal`, `Nirmala UI`, `Aparajita`, `Utsaah` -> `"Mangal", "Nirmala UI", "Noto Sans Devanagari", sans-serif`
+  - `Kokila`, `Siddhanta`, `Sanskrit 2003`, `Chandas` -> `"Kokila", "Siddhanta", "Noto Serif Devanagari", "Tiro Devanagari Sanskrit", serif`
+  - `Tunga`, `Kedage` -> `"Tunga", "Noto Sans Kannada", sans-serif`
+  - `Gautami`, `Vani` -> `"Gautami", "Noto Sans Telugu", sans-serif`
+  - `Latha`, `Vijaya` -> `"Latha", "Noto Sans Tamil", sans-serif`
+
+### 4.5 Block Justification & Superscript Fidelity
+- Propagates default paragraph justification (`w:jc="both"` or `"distribute"`) from `styles.xml` into `document.xml` paragraphs that lack explicit alignment.
+- Normalizes `w:jc="distribute"` to `w:jc="both"` so `docx-preview` generates `text-align: justify`.
+- Enforces `text-justify: inter-word;` on justified blocks.
+- Wraps footnote reference runs (`FootnoteReference` / `w:footnoteReference`) and `<w:vertAlign w:val="superscript"/>` runs with `vertical-align: super !important; font-size: 0.68em !important; line-height: 0 !important;` to ensure footnote indices never flatten into inline numbers.

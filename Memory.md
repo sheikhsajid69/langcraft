@@ -146,3 +146,20 @@
   - `src/lib/docx-processor.ts` — Stage A OOXML font normalization confirmed correct with complete font substitution matrix
   - `public/Epic-Elephant-langcraft.png` — Logo wired to sidebar, topbar, page header (72px), layout metadata
   - All 6 blueprint files intact: `PRD.md`, `Architecture.md`, `Rules.md`, `Phases.md`, `Design.md`, `Memory.md`
+
+---
+
+### [2026-10-22 Layout Fidelity, Pagination & Metric-Exact Rendering Overhaul]
+- **Date & Time:** 2026-10-22T23:25:00+05:30
+- **Context:** User requested resolving all visual defects (BUG-01 through BUG-05) relating to page-break line slicing, margin clipping, lack of block justification, flattened footnote markers, font metric drift, and hanging indent loss.
+- **Root Causes & Solutions Executed:**
+  - **BUG-01 (Line Slicing & Margin Clipping):** Await `document.fonts.ready` before calling `docx.renderAsync()`. Render unclipped with `ignoreHeight: true`, `breakPages: false`, and apply exact native CSS `@page` margins from `w:pgMar`. Added CSS `page-break-inside: avoid; break-inside: avoid-page; orphans: 3; widows: 3;` on `p, li, blockquote, tr, img, figure`.
+  - **BUG-02 (Ragged Right Edges):** Propagated `w:jc="both"` from default/Normal styles in `styles.xml` to `document.xml`. Normalized `w:jc="distribute"` to `both`. Enforced `text-align: justify; text-justify: inter-word;` via CSS and post-render DOM pass.
+  - **BUG-03 (Footnote Superscript Flattening):** Enforced `<w:vertAlign w:val="superscript"/>` on `w:footnoteReference`, `w:endnoteReference`, and `FootnoteReference` styled runs. Enforced CSS `vertical-align: super !important; font-size: 0.68em !important; line-height: 0 !important;`.
+  - **BUG-04 (Font Metric Drift):** Non-destructive font preservation. Extracted and de-obfuscated embedded fonts from `word/fonts/*.odttf` using ECMA-376 Part 2 §8.5.1 GUID XOR de-obfuscation (`deobfuscateODTTF`). Injected composite font stacks mapping serif vs. sans Indic typefaces accurately.
+  - **BUG-05 (Numbered Bibliography & Indents):** Preserved `<w:ind>` (`w:left`, `w:hanging`, `w:firstLine`) and `<w:spacing>` without global margin/padding resets overriding docx-preview styling.
+- **Verification Gates (All Passed):**
+  - `npx tsc --noEmit` → 0 errors ✅
+  - `npm run lint` → 0 warnings, 0 errors ✅
+  - `npm test` → 19/19 passing (TC-01 through TC-11, 5 security tests, TC-LAYOUT-01 through TC-LAYOUT-05) ✅
+  - `npm run build` → Next.js production build succeeded; 6 static/dynamic routes compiled cleanly ✅

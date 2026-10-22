@@ -52,22 +52,56 @@ export function detectScriptsInText(text: string): ScriptDetectionResult[] {
     // - Presence of Vedic accents
     // - Visarga + Avagraha presence
     // - Or high virama density (> 10%) with halant endings common in Sanskrit inflexions
-    const isSanskrit =
+    const hasSanskritMarkers =
       hasVedicAccents ||
       (visargaCount > 0 && (avagrahaCount > 0 || omCount > 0 || halantEndingCount > 0)) ||
       (viramaDensity >= 0.10 && (visargaCount > 0 || halantEndingCount > 0 || omCount > 0));
 
-    results.push({
-      script: isSanskrit ? 'Sanskrit' : 'Hindi',
-      confidence: Math.min(1.0, totalDevanagari / 10),
-      unicodeBlocks: [
-        'U+0900–U+097F (Devanagari)',
-        ...(devExtMatches.length > 0 ? ['U+A8E0–U+A8FF (Devanagari Extended)'] : []),
-        ...(vedicMatches.length > 0 ? ['U+1CD0–U+1CFF (Vedic Extensions)'] : []),
-      ],
-      charCount: totalDevanagari,
-      hasVedicAccents,
-    });
+    // Hindi distinct linguistic words / postpositions bounded by whitespace or punctuation
+    const hindiBoundaryRegex =
+      /(?:^|[\s,।॥—\-])(का|की|के|में|है|हैं|और|से|को|पर|था|थी|थे|नहीं|नारी|हिंदी|भारत|साहित्य|विमर्श)(?:$|[\s,।॥—\-])/;
+    const hasHindiMarkers = hindiBoundaryRegex.test(normalized);
+
+    if (hasSanskritMarkers && hasHindiMarkers) {
+      // Both Sanskrit and Hindi are present in this document
+      results.push({
+        script: 'Sanskrit',
+        confidence: Math.min(1.0, totalDevanagari / 10),
+        unicodeBlocks: [
+          'U+0900–U+097F (Devanagari)',
+          ...(devExtMatches.length > 0 ? ['U+A8E0–U+A8FF (Devanagari Extended)'] : []),
+          ...(vedicMatches.length > 0 ? ['U+1CD0–U+1CFF (Vedic Extensions)'] : []),
+        ],
+        charCount: Math.round(totalDevanagari / 2),
+        hasVedicAccents,
+      });
+      results.push({
+        script: 'Hindi',
+        confidence: Math.min(1.0, totalDevanagari / 10),
+        unicodeBlocks: ['U+0900–U+097F (Devanagari)'],
+        charCount: Math.round(totalDevanagari / 2),
+      });
+    } else if (hasSanskritMarkers) {
+      results.push({
+        script: 'Sanskrit',
+        confidence: Math.min(1.0, totalDevanagari / 10),
+        unicodeBlocks: [
+          'U+0900–U+097F (Devanagari)',
+          ...(devExtMatches.length > 0 ? ['U+A8E0–U+A8FF (Devanagari Extended)'] : []),
+          ...(vedicMatches.length > 0 ? ['U+1CD0–U+1CFF (Vedic Extensions)'] : []),
+        ],
+        charCount: totalDevanagari,
+        hasVedicAccents,
+      });
+    } else {
+      results.push({
+        script: 'Hindi',
+        confidence: Math.min(1.0, totalDevanagari / 10),
+        unicodeBlocks: ['U+0900–U+097F (Devanagari)'],
+        charCount: totalDevanagari,
+        hasVedicAccents,
+      });
+    }
   }
 
   // 2. Kannada Analysis

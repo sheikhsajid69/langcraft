@@ -73,3 +73,14 @@
 - [x] Phase 3 — Retained Playwright + docx-preview document-only PDF path; corrected print margins and blocked non-font browser egress.
 - [x] Phase 4 — Hardened strict ZIP magic and external relationship stripping; npm test passed 13 tests.
 - [x] Phase 5 — Pushed commit 33595b1 to origin/main. Typecheck, lint, and 13 tests pass; the final repeat build was blocked only by host disk exhaustion while writing Next's cache.
+
+---
+
+## Phase 6: Layout Fidelity, Pagination & Metric-Exact Rendering Overhaul — 2026-10-22
+- [x] BUG-01: Resolved horizontal line slicing across page breaks by awaiting web fonts before rendering, setting `ignoreHeight: true`, `breakPages: false`, and applying native CSS `@page` margins from `w:pgMar`.
+- [x] BUG-02: Resolved ragged right edges by propagating `w:jc="both"` from `styles.xml` to `document.xml`, normalizing `distribute` to `both`, and enforcing `text-align: justify; text-justify: inter-word;`.
+- [x] BUG-03: Resolved footnote markers flattening by enforcing `w:vertAlign="superscript"` and applying `vertical-align: super !important; font-size: 0.68em !important; line-height: 0 !important;`.
+- [x] BUG-04: Non-destructive font preservation with ECMA-376 Part 2 §8.5.1 `.odttf` font de-obfuscation and composite fallback stacks.
+- [x] BUG-05: Preserved hanging indents (`<w:ind>`) and paragraph spacing (`<w:spacing>`) in twips converted to CSS points without destructive global resets.
+- [x] Implemented `tests/layout-fidelity.test.ts` (TC-LAYOUT-01 through TC-LAYOUT-05).
+- [x] Full verification: `npx tsc --noEmit` (0 errors), `npm run lint` (0 errors), `npm test` (19/19 passing), `npm run build` (0 errors).
