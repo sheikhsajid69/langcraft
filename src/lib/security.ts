@@ -14,7 +14,6 @@ export interface SecurityInspectionResult {
   fileCount: number;
   uncompressedSize: number;
   compressionRatio: number;
-  sha256?: string;
 }
 
 // Strict Security Limits

@@ -101,18 +101,6 @@ export const COMPOSITE_FONT_STACKS: Record<string, string> = {
 };
 
 /**
- * Returns the composite font stack for any font family name
- */
-export function getCompositeFontStack(fontName: string): string {
-  if (!fontName) return '"Inter", "Noto Sans Devanagari", sans-serif';
-  const clean = fontName.trim().toLowerCase();
-  for (const [key, stack] of Object.entries(COMPOSITE_FONT_STACKS)) {
-    if (clean.includes(key)) return stack;
-  }
-  return `"${fontName}", "Noto Sans Devanagari", sans-serif`;
-}
-
-/**
  * De-obfuscates an embedded .odttf font file according to ECMA-376 Part 2 §8.5.1
  * (Office Open XML / XPS Obfuscated OpenType Font Specification).
  */
@@ -208,7 +196,6 @@ export interface ParsedDocxResult {
   pageSizeCss?: string;
   pageGeometry?: PageGeometry;
   embeddedFontFaces?: string;
-  justifiedParagraphIndices?: number[];
 }
 
 /**
@@ -636,12 +623,7 @@ export async function normalizeDocxBuffer(
 /**
  * Backward compatibility alias for processDocxBuffer
  */
-export async function processDocxBuffer(
-  buffer: Buffer | ArrayBuffer | Uint8Array,
-  filename: string
-): Promise<ParsedDocxResult> {
-  return normalizeDocxBuffer(buffer, filename);
-}
+export const processDocxBuffer = normalizeDocxBuffer;
 
 function generateHtmlPreview(extractedText: string, diagnostic: DocumentDiagnostic): string {
   const paragraphs = extractedText

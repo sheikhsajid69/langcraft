@@ -11,7 +11,7 @@ import { PreviewSplitView } from '@/components/PreviewSplitView';
 import { Footer } from '@/components/Footer';
 import { DocumentDiagnostic, IndicScript } from '@/types';
 import { normalizeDocxBuffer } from '@/lib/docx-processor';
-import { ShieldAlert, AlertCircle, RefreshCw } from 'lucide-react';
+import { ShieldAlert, RefreshCw } from 'lucide-react';
 
 export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);

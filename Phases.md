@@ -84,3 +84,12 @@
 - [x] BUG-05: Preserved hanging indents (`<w:ind>`) and paragraph spacing (`<w:spacing>`) in twips converted to CSS points without destructive global resets.
 - [x] Implemented `tests/layout-fidelity.test.ts` (TC-LAYOUT-01 through TC-LAYOUT-05).
 - [x] Full verification: `npx tsc --noEmit` (0 errors), `npm run lint` (0 errors), `npm test` (19/19 passing), `npm run build` (0 errors).
+
+---
+
+## Phase 7: Ponytail Audit & Code Review Optimization — 2026-11-04
+- [x] Removed 4 unused dependencies from `package.json` (`@pdf-lib/fontkit`, `pdf-lib`, `clsx`, `tailwind-merge`).
+- [x] Removed speculative dead LibreOffice fallback and `child_process` from `src/lib/pdf-engine.ts`.
+- [x] Removed dead wrapper `createPdfDocument` and unused `getCompositeFontStack` helper.
+- [x] Stripped unused types (`ConversionResponse`, `sha256`) and dead `AlertCircle` import.
+- [x] Full verification: `npx tsc --noEmit` (0 errors), `npm run lint` (0 errors), `npm test` (19/19 passing), `npm run build` (0 errors).

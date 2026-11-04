@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { detectScriptsInText } from '@/lib/script-detector';
 import { processDocxBuffer, createSampleDocx, mapFontFamily } from '@/lib/docx-processor';
-import { createPdfDocument, renderDocxToPdf, tofuValidator } from '@/lib/pdf-engine';
+import { renderDocxToPdf, tofuValidator } from '@/lib/pdf-engine';
 import { transcodeKrutiDev, transcodeNudi, transcodeBamini } from '@/lib/legacy-transcoder';
 
 describe('LangCraft Indic Conversion Engine - Mandatory Test Suite', () => {

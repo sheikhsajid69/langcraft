@@ -163,3 +163,20 @@
   - `npm run lint` → 0 warnings, 0 errors ✅
   - `npm test` → 19/19 passing (TC-01 through TC-11, 5 security tests, TC-LAYOUT-01 through TC-LAYOUT-05) ✅
   - `npm run build` → Next.js production build succeeded; 6 static/dynamic routes compiled cleanly ✅
+
+---
+
+### [2026-11-04 Ponytail Audit & Code Review Pass]
+- **Date & Time:** 2026-11-04T21:05:00+05:30
+- **Context:** User requested `/ponytail-review` of changes, `/ponytail-audit` of repository, and shipping changes to GitHub.
+- **Remediations Executed:**
+  - `package.json`: Pruned 4 completely unused packages (`@pdf-lib/fontkit`, `pdf-lib`, `clsx`, `tailwind-merge`).
+  - `src/lib/pdf-engine.ts`: Cut speculative unused LibreOffice fallback and `child_process` import; cut unused `createPdfDocument` wrapper (-93 lines).
+  - `src/lib/docx-processor.ts`: Cut unused `getCompositeFontStack` helper, removed dead `justifiedParagraphIndices` field, simplified `processDocxBuffer` alias (-20 lines).
+  - `src/types/index.ts`: Cut unused `ConversionResponse` interface and `sha256` field (-10 lines).
+  - `src/app/page.tsx`: Removed unused `AlertCircle` import.
+- **Verification Gates (All Passed):**
+  - `npx tsc --noEmit` → 0 errors ✅
+  - `npm run lint` → 0 warnings, 0 errors ✅
+  - `npm test` → 19/19 passing ✅
+  - `npm run build` → Production build clean ✅

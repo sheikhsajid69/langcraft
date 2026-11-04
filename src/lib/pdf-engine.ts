@@ -1,8 +1,7 @@
 import { chromium, Browser } from 'playwright';
 import path from 'path';
 import fs from 'fs';
-import { spawnSync } from 'child_process';
-import { DocumentDiagnostic, IndicScript } from '@/types';
+import { IndicScript } from '@/types';
 import { COMPOSITE_FONT_STACKS } from './docx-processor';
 
 export const runtime = 'nodejs';
@@ -14,7 +13,6 @@ export interface RenderPdfOptions {
   pageSizeCss?: string;
   expectedScripts?: IndicScript[];
   embeddedFontFaces?: string;
-  engine?: 'chromium' | 'libreoffice';
 }
 
 export interface TofuValidationResult {
@@ -85,35 +83,13 @@ export function tofuValidator(
 }
 
 /**
- * Checks if headless LibreOffice (soffice) is available on the system
- */
-export function isLibreOfficeAvailable(): boolean {
-  try {
-    const result = spawnSync('soffice', ['--version'], { timeout: 2000 });
-    return result.status === 0;
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Stage B: True 1:1 WYSIWYG Document Rendering via Headless Chromium & HarfBuzz.
  * Renders the normalized OOXML document with exact page layout, tables, margins,
  * alignments, superscripts, and embedded images.
  * ZERO DIAGNOSTIC WATERMARKS OR METADATA ARE INJECTED INTO THE PDF.
  */
 export async function renderDocxToPdf(options: RenderPdfOptions): Promise<Buffer> {
-  const { normalizedDocxBuffer, pageSizeCss, embeddedFontFaces, engine } = options;
-
-  // Optional LibreOffice native fallback if requested and available
-  if (engine === 'libreoffice' && isLibreOfficeAvailable()) {
-    try {
-      const loPdf = await renderWithLibreOffice(normalizedDocxBuffer);
-      if (loPdf) return loPdf;
-    } catch (loErr) {
-      console.warn('LibreOffice execution failed; falling back to Chromium HarfBuzz:', loErr);
-    }
-  }
+  const { normalizedDocxBuffer, pageSizeCss, embeddedFontFaces } = options;
 
   let browser: Browser | null = null;
 
@@ -381,69 +357,4 @@ export async function renderDocxToPdf(options: RenderPdfOptions): Promise<Buffer
       await browser.close();
     }
   }
-}
-
-/**
- * Optional helper for headless LibreOffice rendering when soffice is available
- */
-async function renderWithLibreOffice(docxBuffer: Buffer | Uint8Array): Promise<Buffer | null> {
-  const os = await import('os');
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'langcraft-lo-'));
-  const inputPath = path.join(tempDir, 'document.docx');
-  const outputPath = path.join(tempDir, 'document.pdf');
-
-  try {
-    fs.writeFileSync(inputPath, docxBuffer instanceof Buffer ? docxBuffer : Buffer.from(docxBuffer));
-    const res = spawnSync('soffice', ['--headless', '--convert-to', 'pdf', '--outdir', tempDir, inputPath], {
-      timeout: 30000,
-    });
-
-    if (res.status === 0 && fs.existsSync(outputPath)) {
-      return fs.readFileSync(outputPath);
-    }
-    return null;
-  } finally {
-    try {
-      if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
-      if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-      fs.rmdirSync(tempDir);
-    } catch {
-      // non-fatal cleanup
-    }
-  }
-}
-
-/**
- * Backward compatibility wrapper for createPdfDocument
- */
-export async function createPdfDocument(options: {
-  diagnostic: DocumentDiagnostic;
-  htmlContent: string;
-  extractedText: string;
-  normalizedBuffer?: Buffer;
-  pageSizeCss?: string;
-  embeddedFontFaces?: string;
-}): Promise<Buffer> {
-  if (options.normalizedBuffer) {
-    return renderDocxToPdf({
-      normalizedDocxBuffer: options.normalizedBuffer,
-      filename: options.diagnostic.filename,
-      pageSizeCss: options.pageSizeCss,
-      embeddedFontFaces: options.embeddedFontFaces,
-      expectedScripts: options.diagnostic.detectedScripts,
-    });
-  }
-
-  // Fallback if only raw text available
-  const { createSampleDocx } = await import('./docx-processor');
-  const sample = await createSampleDocx(
-    options.diagnostic.primaryScript === 'Mixed' || options.diagnostic.primaryScript === 'Latin'
-      ? 'Hindi'
-      : options.diagnostic.primaryScript
-  );
-  return renderDocxToPdf({
-    normalizedDocxBuffer: sample.buffer,
-    filename: options.diagnostic.filename,
-    expectedScripts: options.diagnostic.detectedScripts,
-  });
 }
