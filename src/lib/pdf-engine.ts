@@ -173,6 +173,13 @@ export async function renderDocxToPdf(options: RenderPdfOptions): Promise<Buffer
       page-break-inside: avoid;
       break-inside: avoid-page;
     }
+    /* Anti-orphan headings and subheadings (FIX-04) */
+    [data-keep-next="true"],
+    .docx-keep-next,
+    .keep-next {
+      page-break-after: avoid !important;
+      break-after: avoid-page !important;
+    }
     /* Fix Superscripts & Footnote References ("6, "7) */
     sup, sub, span[style*="superscript"], a[id^="footnote"], .docx-footnote-ref, .docx-footnote-reference {
       vertical-align: super !important;
@@ -325,6 +332,39 @@ export async function renderDocxToPdf(options: RenderPdfOptions): Promise<Buffer
       pageBreaks.forEach((pb: any) => {
         pb.style.pageBreakBefore = 'always';
         pb.style.breakBefore = 'page';
+      });
+
+      // Anti-orphan headings and subheadings enforcer (FIX-04)
+      const allParagraphs = document.querySelectorAll(
+        'p, h1, h2, h3, h4, h5, h6, [class*="heading"], .docx-keep-next'
+      );
+      allParagraphs.forEach((el) => {
+        const text = (el.textContent || '').trim();
+        const tagName = el.tagName.toLowerCase();
+        const isHeadingTag = /^h[1-6]$/.test(tagName);
+        const endsWithColon = /[:ः]\s*$/.test(text);
+        const isShortColonLabel = endsWithColon && text.length < 120;
+        const hasKeepNext =
+          el.classList.contains('docx-keep-next') ||
+          el.hasAttribute('data-keep-next') ||
+          (el.getAttribute('style') || '').includes('page-break-after: avoid') ||
+          (el.getAttribute('style') || '').includes('break-after: avoid');
+        const isNumberedSubhead = /^[0-9]+[\.\)]\s+/.test(text) && text.length < 80;
+        const isLetterSubhead = /^\([क-हa-z0-9]\)/i.test(text) && text.length < 80;
+        const isBoldSubhead = el.querySelector('b, strong') !== null && text.length < 80;
+
+        if (
+          isHeadingTag ||
+          isShortColonLabel ||
+          hasKeepNext ||
+          isNumberedSubhead ||
+          isLetterSubhead ||
+          isBoldSubhead
+        ) {
+          (el as HTMLElement).style.pageBreakAfter = 'avoid';
+          (el as HTMLElement).style.breakAfter = 'avoid-page';
+          (el as HTMLElement).setAttribute('data-keep-next', 'true');
+        }
       });
     }, COMPOSITE_FONT_STACKS);
 

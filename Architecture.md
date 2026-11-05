@@ -140,3 +140,14 @@ POST /api/inspect returns diagnostics only. POST /api/convert returns Chromium P
 - Normalizes `w:jc="distribute"` to `w:jc="both"` so `docx-preview` generates `text-align: justify`.
 - Enforces `text-justify: inter-word;` on justified blocks.
 - Wraps footnote reference runs (`FootnoteReference` / `w:footnoteReference`) and `<w:vertAlign w:val="superscript"/>` runs with `vertical-align: super !important; font-size: 0.68em !important; line-height: 0 !important;` to ensure footnote indices never flatten into inline numbers.
+
+### 4.6 Strict Zero Text Mutation & Two-Factor Transcoding Guard
+- Enforces a strict two-factor check in `src/lib/legacy-transcoder.ts`:
+  1. `<w:rFonts>` explicitly matches legacy ASCII-encoded Indic fonts (`Kruti Dev`, `Chanakya`, `DevLys`, `Nudi`, `Baraha`, `Bamini`).
+  2. The text run contains ZERO Unicode Indic characters (`!/[\u0900-\u0D7F]/.test(text)`).
+- When text already contains valid Unicode codepoints, it is 100% protected against any regex replacement, normalization, or transcoding, preserving every matra (मैथिलीशरण, अबला, प्राचीन कथा ओं), colon (:), pipe (|), and double danda (॥) verbatim.
+
+### 4.7 Sequential Document Order & Anti-Orphan Headings Engine
+- Traverses `<w:body>` child nodes strictly linearly, eliminating heading bucket-sorting so paper titles remain at index 0 preceding section headings.
+- Single-line poetry quotes preserve natural single-line stanza layout without punctuation-induced artificial `<w:br/>` breaks.
+- Injects `break-after: avoid-page !important` and `data-keep-next="true"` on all `h1`-`h6` headings, `w:keepNext` elements, and short subheadings terminated by colons or visargas (e.g. `उपसंहार :`, `यशोधरा से:`, `साकेत से:`, `संदर्भ सूची:`), preventing orphaned headers at page bottoms.

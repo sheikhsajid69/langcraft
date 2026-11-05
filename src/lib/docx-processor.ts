@@ -39,6 +39,7 @@ export const FONT_SUBSTITUTION_MATRIX: Record<
   'kruti dev 020': { targetFont: 'Noto Sans Devanagari', script: 'Hindi' },
   'kruti dev': { targetFont: 'Noto Sans Devanagari', script: 'Hindi' },
   chanakya: { targetFont: 'Noto Sans Devanagari', script: 'Hindi' },
+  devlys: { targetFont: 'Noto Sans Devanagari', script: 'Hindi' },
 
   // Kannada
   tunga: { targetFont: 'Noto Sans Kannada', script: 'Kannada' },
@@ -82,6 +83,7 @@ export const COMPOSITE_FONT_STACKS: Record<string, string> = {
   'kruti dev 020': '"Kruti Dev 020", "Noto Serif Devanagari", "Noto Sans Devanagari", serif',
   'kruti dev': '"Kruti Dev", "Noto Serif Devanagari", "Noto Sans Devanagari", serif',
   chanakya: '"Chanakya", "Noto Serif Devanagari", "Noto Sans Devanagari", serif',
+  devlys: '"DevLys", "Noto Serif Devanagari", "Noto Sans Devanagari", serif',
   tunga: '"Tunga", "Noto Sans Kannada", sans-serif',
   kedage: '"Kedage", "Noto Sans Kannada", sans-serif',
   'nudi 01e': '"Nudi 01e", "Noto Sans Kannada", sans-serif',
@@ -449,14 +451,32 @@ export async function normalizeDocxBuffer(
     else if (tblElements) tablesCount = 1;
   }
 
-  // Extract text runs
-  const textMatches = docXml.match(/<w:t[^>]*>([^<]*)<\/w:t>/g) || [];
-  for (const tTag of textMatches) {
-    const match = tTag.match(/<w:t[^>]*>([^<]*)<\/w:t>/);
-    if (match && match[1]) {
-      fullExtractedText += ' ' + match[1];
+  // Extract paragraphs and text runs in strict linear sequential document order.
+  // Preserves 100% of w:body child sequence without bucket-sorting nodes.
+  const paragraphTexts: string[] = [];
+  const pRegex = /<w:p\b[^>]*>([\s\S]*?)<\/w:p>/gi;
+  let pMatch;
+  while ((pMatch = pRegex.exec(docXml)) !== null) {
+    const pXml = pMatch[1] || '';
+    let pText = '';
+    const tokenRegex = /<w:t\b[^>]*>([^<]*)<\/w:t>|<w:tab\/>|<w:br\/>/gi;
+    let tMatch;
+    while ((tMatch = tokenRegex.exec(pXml)) !== null) {
+      if (tMatch[1] !== undefined) {
+        pText += tMatch[1];
+      } else if (tMatch[0].toLowerCase().includes('<w:tab')) {
+        pText += '\t';
+      } else if (tMatch[0].toLowerCase().includes('<w:br')) {
+        pText += '\n';
+      }
+    }
+    if (pText.trim().length > 0) {
+      paragraphTexts.push(pText.trim());
     }
   }
+
+  // Linear full text with clean paragraph boundaries
+  fullExtractedText = paragraphTexts.join('\n\n');
 
   // Detect original font declarations in <w:rFonts>
   const rFontsMatches = docXml.match(/<w:rFonts[^>]*\/>/g) || [];
@@ -472,13 +492,18 @@ export async function normalizeDocxBuffer(
     }
   }
 
-  // Transcode ONLY legacy non-Unicode fonts (Kruti Dev / Nudi / Bamini)
+  // Transcode ONLY legacy non-Unicode fonts (Kruti Dev / Nudi / Bamini / DevLys)
+  // Two-Factor Check: NEVER mutate if text already contains valid Unicode Indic characters!
   if (legacyFontsDetectedSet.size > 0) {
     for (const legFont of legacyFontsDetectedSet) {
       docXml = docXml.replace(
         /(<w:r\b[^>]*>(?:(?!<\/w:r>)[\s\S])*?<w:rFonts\b[^>]*w:(?:ascii|cs)=["']([^"']*?)["'][^>]*\/>(?:(?!<\/w:r>)[\s\S])*?<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>[\s\S]*?<\/w:r>)/gi,
         (match, prefix, fontName, textContent, suffix) => {
           if (fontName.toLowerCase().includes(legFont.toLowerCase())) {
+            // STRICT INVARIANT: If text already has valid Unicode Indic characters, leave it 100% untouched
+            if (/[\u0900-\u0D7F]/.test(textContent)) {
+              return match;
+            }
             const transcoded = transcodeText(textContent, fontName);
             return `${prefix}${transcoded}${suffix}`;
           }
@@ -627,7 +652,7 @@ export const processDocxBuffer = normalizeDocxBuffer;
 
 function generateHtmlPreview(extractedText: string, diagnostic: DocumentDiagnostic): string {
   const paragraphs = extractedText
-    .split(/\n+/)
+    .split(/\n\n+/)
     .map((p) => p.trim())
     .filter((p) => p.length > 0);
 
@@ -638,12 +663,29 @@ function generateHtmlPreview(extractedText: string, diagnostic: DocumentDiagnost
   else if (diagnostic.primaryScript === 'Telugu') fontClass = 'indic-text-telugu';
   else if (diagnostic.primaryScript === 'Tamil') fontClass = 'indic-text-tamil';
 
-  let html = `<div class="langcraft-doc-preview space-y-3 ${fontClass}">`;
-  for (const para of paragraphs.slice(0, 50)) {
-    html += `<p class="leading-relaxed my-2">${escapeHtml(para)}</p>`;
+  let html = `<div class="langcraft-doc-preview space-y-3.5 ${fontClass}">`;
+  for (const para of paragraphs.slice(0, 100)) {
+    const isMainTitle = /^[0-9]+\.\s*[^:]+$/.test(para) && para.length < 90;
+    const isSectionHeading =
+      /^[0-9]+\.\s*[^:]+\s*:/.test(para) || /^(उपसंहार|संदर्भ सूची)\s*:/.test(para);
+    const isSubHeading =
+      /^\([क-हa-z0-9]\)/i.test(para) || /^(यशोधरा|साकेत)\s*से\s*:/i.test(para);
+    const isPoetryQuote = para.startsWith('"') && para.endsWith('"');
+
+    if (isMainTitle) {
+      html += `<h2 class="text-base sm:text-lg font-bold my-2 text-[#37352F] dark:text-white">${escapeHtml(para)}</h2>`;
+    } else if (isSectionHeading) {
+      html += `<h3 class="text-sm sm:text-base font-semibold my-2 text-[#37352F] dark:text-white">${escapeHtml(para)}</h3>`;
+    } else if (isSubHeading) {
+      html += `<h4 class="text-xs sm:text-sm font-semibold my-1.5 text-[#37352F] dark:text-[#D4D4D4]">${escapeHtml(para)}</h4>`;
+    } else if (isPoetryQuote) {
+      html += `<blockquote class="pl-3.5 my-2 border-l-2 border-[#2383E2] text-xs sm:text-sm italic leading-relaxed text-[#37352F] dark:text-[#D4D4D4] bg-[#F7F6F3]/60 dark:bg-white/5 py-1.5 rounded-r">${escapeHtml(para).replace(/\n/g, '<br/>')}</blockquote>`;
+    } else {
+      html += `<p class="leading-relaxed my-2 text-xs sm:text-sm text-justify">${escapeHtml(para).replace(/\n/g, '<br/>')}</p>`;
+    }
   }
-  if (paragraphs.length > 50) {
-    html += `<p class="text-xs text-[#787774] italic">... (${paragraphs.length - 50} more paragraphs in document)</p>`;
+  if (paragraphs.length > 100) {
+    html += `<p class="text-xs text-[#787774] italic">... (${paragraphs.length - 100} more paragraphs in document)</p>`;
   }
   html += '</div>';
   return html;

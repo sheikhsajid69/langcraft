@@ -93,3 +93,18 @@
 - [x] Removed dead wrapper `createPdfDocument` and unused `getCompositeFontStack` helper.
 - [x] Stripped unused types (`ConversionResponse`, `sha256`) and dead `AlertCircle` import.
 - [x] Full verification: `npx tsc --noEmit` (0 errors), `npm run lint` (0 errors), `npm test` (19/19 passing), `npm run build` (0 errors).
+
+---
+
+## Phase 8: Verbatim Unicode Fidelity, Anti-Orphan Headings & Forensic Bug Elimination — 2026-11-05
+- [x] **FIX-01 (Sequential Heading Order):** Eliminated heading bucket-sorting. Extracted paragraphs strictly sequentially along the XML DOM hierarchy so "23.मैथिलीशरण गुप्त के काव्य में नारी भावना" remains index 0 above "1. प्रस्तावना :".
+- [x] **FIX-02 (Zero Text Mutation):** Enforced strict two-factor check in `legacy-transcoder.ts`. Text runs with existing Unicode Indic codepoints (`[\u0900-\u0D7F]`) are 100% exempt from any transcoding or normalization, preserving every matra (मैथिलीशरण, अबला, प्राचीन कथा ओं), colon (:), pipe (|), and double danda (॥) verbatim.
+- [x] **FIX-03 (Zero Artificial Line Breaks):** Single-line poetry quotes under "यशोधरा से:" and "साकेत से:" retain exact line integrity without artificial break injection after sentence punctuation.
+- [x] **FIX-04 (Anti-Orphan Headings Protection):** Added `break-after: avoid-page !important` and `data-keep-next="true"` enforcement to headings (`h1`-`h6`), bold subheadings, and short colon/visarga-terminated labels ("उपसंहार :", "यशोधरा से:", "साकेत से:", "संदर्भ सूची:"), pinning them to the following paragraph.
+- [x] **FIX-05 (Layout & Bibliography Fidelity):** Preserved 100% of OOXML paragraph properties (`w:pPr`), hanging indents (`w:ind`), justification (`w:jc`), and author block typography ("Syed Fiza...").
+- [x] **Test Suite Implementation:** Created `tests/maithilisharan-fidelity.test.ts` (TC-FIDELITY-01 to TC-FIDELITY-05).
+- [x] **Gate Verification:**
+  - `npx tsc --noEmit` → 0 errors ✅
+  - `npm run lint` → 0 errors/warnings ✅
+  - `npm test` → 24/24 passing (4 test suites) ✅
+  - `npm run build` → Production build succeeded ✅

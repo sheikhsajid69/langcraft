@@ -1,7 +1,8 @@
 /**
  * Legacy ASCII to Unicode Indic Transcoder
- * Handles legacy non-Unicode fonts (Kruti Dev, Chanakya, Nudi, Baraha, Bamini)
+ * Handles legacy non-Unicode fonts (Kruti Dev, Chanakya, DevLys, Nudi, Baraha, Bamini)
  * Reorders typewriter pre-base matras and reph into canonical Unicode NFC order.
+ * Strictly enforces ZERO text mutation on text that is already valid Unicode.
  */
 
 // Kruti Dev 010 / 020 to Unicode Devanagari Mapping
@@ -69,6 +70,7 @@ export function isLegacyFont(fontFamily: string): boolean {
   return (
     lower.includes('kruti') ||
     lower.includes('chanakya') ||
+    lower.includes('devlys') ||
     lower.includes('walkman') ||
     lower.includes('nudi') ||
     lower.includes('baraha') ||
@@ -85,7 +87,12 @@ export function identifyLegacyType(
 ): 'KrutiDev' | 'Chanakya' | 'Nudi' | 'Bamini' | null {
   if (!fontFamily) return null;
   const lower = fontFamily.toLowerCase();
-  if (lower.includes('kruti') || lower.includes('chanakya') || lower.includes('walkman')) {
+  if (
+    lower.includes('kruti') ||
+    lower.includes('chanakya') ||
+    lower.includes('devlys') ||
+    lower.includes('walkman')
+  ) {
     return 'KrutiDev';
   }
   if (lower.includes('nudi') || lower.includes('baraha')) {
@@ -197,11 +204,22 @@ export function transcodeNudi(text: string): string {
 }
 
 /**
- * Universal transcode entry point: checks font and transcodes accordingly
+ * Universal transcode entry point: checks font and transcodes accordingly.
+ * Strictly enforces ZERO text mutation on text that is already valid Unicode.
+ * Preserves all colons (:), pipes (|), double dandas (॥), matras, and spaces verbatim.
  */
 export function transcodeText(text: string, fontFamily: string): string {
+  if (!text) return '';
+
+  // TWO-FACTOR GUARD: Never mutate text that already contains valid Unicode Indic characters
+  if (/[\u0900-\u0D7F]/.test(text)) {
+    return text;
+  }
+
   const legacyType = identifyLegacyType(fontFamily);
-  if (!legacyType) return text.normalize('NFC');
+  if (!legacyType) {
+    return text;
+  }
 
   switch (legacyType) {
     case 'KrutiDev':
@@ -212,6 +230,6 @@ export function transcodeText(text: string, fontFamily: string): string {
     case 'Nudi':
       return transcodeNudi(text);
     default:
-      return text.normalize('NFC');
+      return text;
   }
 }

@@ -180,3 +180,22 @@
   - `npm run lint` → 0 warnings, 0 errors ✅
   - `npm test` → 19/19 passing ✅
   - `npm run build` → Production build clean ✅
+
+---
+
+### [2026-11-05 Verbatim Unicode Character Fidelity & Anti-Orphan Headings Overhaul]
+- **Date & Time:** 2026-11-05T22:10:00+05:30
+- **Context:** TOON/1.0 prompt addressing forensic bugs FIX-01 through FIX-05 identified on the Maithilisharan Gupta academic paper ("23.मैथिलीशरण गुप्त के काव्य में नारी भावना").
+- **Root Causes & Solutions Executed:**
+  - **FIX-01 (Sequential Heading Order):** Replaced non-sequential text extraction with strict linear DOM order parsing. Main paper title ("23.मैथिलीशरण गुप्त के काव्य में नारी भावना") remains at index 0, followed by "1. प्रस्तावना :", without bucket-sorting headings.
+  - **FIX-02 (Zero Text Mutation):** Introduced strict two-factor guard in `transcodeText()`. If text contains any valid Unicode Indic character (`[\u0900-\u0D7F]`), it is 100% untouched. Preserved all matras (मैथिलीशरण, अबला, प्राचीन कथा ओं), colons (:), pipes (|), and double dandas (॥) verbatim.
+  - **FIX-03 (Single-Line Quotes):** Verified and enforced zero artificial line-break injection. Poetry quotes under "यशोधरा से:" and "साकेत से:" retain exact line integrity without punctuation-induced splits.
+  - **FIX-04 (Anti-Orphan Headings):** Injected `break-after: avoid-page !important` and `data-keep-next="true"` on headings (`h1-h6`), `w:keepNext` elements, and colon-terminated subheadings ("उपसंहार :", "यशोधरा से:", "साकेत से:", "संदर्भ सूची:"), pinning them to the following paragraph.
+  - **FIX-05 (Layout & Bibliography Fidelity):** Preserved 100% of OOXML paragraph properties (`w:pPr`), hanging indents (`w:ind`), justification (`w:jc`), and author block typography ("Syed Fiza...").
+- **Test Suite:**
+  - Created `tests/maithilisharan-fidelity.test.ts` covering TC-FIDELITY-01 to TC-FIDELITY-05.
+- **Verification Gates (All Passed):**
+  - `npx tsc --noEmit` → 0 errors ✅
+  - `npm run lint` → 0 warnings, 0 errors ✅
+  - `npm test` → 24/24 passing (4 test suites) ✅
+  - `npm run build` → Production build succeeded cleanly ✅
