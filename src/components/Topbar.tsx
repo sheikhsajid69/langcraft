@@ -29,7 +29,7 @@ export const Topbar: React.FC<TopbarProps> = ({
         {onToggleSidebar && (
           <button
             onClick={onToggleSidebar}
-            className="p-1.5 rounded-md hover:bg-[#37352F]/5 dark:hover:bg-white/5 text-[#37352F] dark:text-[#D4D4D4] transition-colors md:hidden shrink-0"
+            className="p-1.5 rounded-md hover:bg-[#37352F]/5 dark:hover:bg-white/5 text-[#37352F] dark:text-[#D4D4D4] transition-colors lg:hidden shrink-0"
             title="Toggle Sidebar"
             aria-label="Toggle Navigation Sidebar"
           >
@@ -43,7 +43,7 @@ export const Topbar: React.FC<TopbarProps> = ({
             alt=""
             width={22}
             height={22}
-            className="h-5.5 w-5.5 shrink-0 rounded-md border border-black/5 shadow-xs dark:border-white/10"
+            className="h-5.5 w-5.5 shrink-0 rounded-md border border-black/5 shadow-xs dark:border-white/10 object-contain"
           />
           <span className="font-semibold text-[#37352F] dark:text-[#D4D4D4] shrink-0">
             LangCraft

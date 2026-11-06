@@ -71,34 +71,34 @@ export const FONT_SUBSTITUTION_MATRIX: Record<
  * Preserves the original Word font first, followed by high-fidelity Google Noto OpenType subsets.
  */
 export const COMPOSITE_FONT_STACKS: Record<string, string> = {
-  mangal: '"Mangal", "Nirmala UI", "Noto Sans Devanagari", sans-serif',
-  'nirmala ui': '"Nirmala UI", "Mangal", "Noto Sans Devanagari", sans-serif',
-  aparajita: '"Aparajita", "Noto Sans Devanagari", sans-serif',
-  utsaah: '"Utsaah", "Noto Sans Devanagari", sans-serif',
-  kokila: '"Kokila", "Siddhanta", "Noto Serif Devanagari", "Tiro Devanagari Sanskrit", serif',
-  'sanskrit 2003': '"Sanskrit 2003", "Siddhanta", "Noto Serif Devanagari", "Tiro Devanagari Sanskrit", serif',
-  siddhanta: '"Siddhanta", "Noto Serif Devanagari", "Tiro Devanagari Sanskrit", serif',
-  chandas: '"Chandas", "Noto Serif Devanagari", "Tiro Devanagari Sanskrit", serif',
-  'kruti dev 010': '"Kruti Dev 010", "Noto Serif Devanagari", "Noto Sans Devanagari", serif',
-  'kruti dev 020': '"Kruti Dev 020", "Noto Serif Devanagari", "Noto Sans Devanagari", serif',
-  'kruti dev': '"Kruti Dev", "Noto Serif Devanagari", "Noto Sans Devanagari", serif',
-  chanakya: '"Chanakya", "Noto Serif Devanagari", "Noto Sans Devanagari", serif',
-  devlys: '"DevLys", "Noto Serif Devanagari", "Noto Sans Devanagari", serif',
-  tunga: '"Tunga", "Noto Sans Kannada", sans-serif',
-  kedage: '"Kedage", "Noto Sans Kannada", sans-serif',
-  'nudi 01e': '"Nudi 01e", "Noto Sans Kannada", sans-serif',
-  'nudi 05e': '"Nudi 05e", "Noto Sans Kannada", sans-serif',
-  baraha: '"Baraha", "Noto Sans Kannada", sans-serif',
-  gautami: '"Gautami", "Noto Sans Telugu", sans-serif',
-  vani: '"Vani", "Noto Sans Telugu", sans-serif',
-  pothana2000: '"Pothana2000", "Noto Sans Telugu", sans-serif',
-  latha: '"Latha", "Noto Sans Tamil", sans-serif',
-  vijaya: '"Vijaya", "Noto Sans Tamil", sans-serif',
-  bamini: '"Bamini", "Noto Sans Tamil", sans-serif',
-  'times new roman': '"Times New Roman", "Noto Serif", "Noto Serif Devanagari", serif',
-  cambria: '"Cambria", "Noto Serif", "Noto Serif Devanagari", serif',
-  calibri: '"Calibri", "Arial", "Inter", "Noto Sans Devanagari", sans-serif',
-  arial: '"Arial", "Calibri", "Inter", "Noto Sans Devanagari", sans-serif',
+  mangal: '"Noto Sans Devanagari", "Mangal", "Nirmala UI", sans-serif',
+  'nirmala ui': '"Noto Sans Devanagari", "Nirmala UI", "Mangal", sans-serif',
+  aparajita: '"Noto Sans Devanagari", "Aparajita", sans-serif',
+  utsaah: '"Noto Sans Devanagari", "Utsaah", sans-serif',
+  kokila: '"Noto Serif Devanagari", "Kokila", "Siddhanta", "Tiro Devanagari Sanskrit", serif',
+  'sanskrit 2003': '"Noto Serif Devanagari", "Sanskrit 2003", "Siddhanta", "Tiro Devanagari Sanskrit", serif',
+  siddhanta: '"Noto Serif Devanagari", "Siddhanta", "Tiro Devanagari Sanskrit", serif',
+  chandas: '"Noto Serif Devanagari", "Chandas", "Tiro Devanagari Sanskrit", serif',
+  'kruti dev 010': '"Noto Serif Devanagari", "Kruti Dev 010", "Noto Sans Devanagari", serif',
+  'kruti dev 020': '"Noto Serif Devanagari", "Kruti Dev 020", "Noto Sans Devanagari", serif',
+  'kruti dev': '"Noto Serif Devanagari", "Kruti Dev", "Noto Sans Devanagari", serif',
+  chanakya: '"Noto Serif Devanagari", "Chanakya", "Noto Sans Devanagari", serif',
+  devlys: '"Noto Serif Devanagari", "DevLys", "Noto Sans Devanagari", serif',
+  tunga: '"Noto Sans Kannada", "Tunga", sans-serif',
+  kedage: '"Noto Sans Kannada", "Kedage", sans-serif',
+  'nudi 01e': '"Noto Sans Kannada", "Nudi 01e", sans-serif',
+  'nudi 05e': '"Noto Sans Kannada", "Nudi 05e", sans-serif',
+  baraha: '"Noto Sans Kannada", "Baraha", sans-serif',
+  gautami: '"Noto Sans Telugu", "Gautami", sans-serif',
+  vani: '"Noto Sans Telugu", "Vani", sans-serif',
+  pothana2000: '"Noto Sans Telugu", "Pothana2000", sans-serif',
+  latha: '"Noto Sans Tamil", "Latha", sans-serif',
+  vijaya: '"Noto Sans Tamil", "Vijaya", sans-serif',
+  bamini: '"Noto Sans Tamil", "Bamini", sans-serif',
+  'times new roman': '"Noto Serif", "Times New Roman", "Noto Serif Devanagari", serif',
+  cambria: '"Noto Serif", "Cambria", "Noto Serif Devanagari", serif',
+  calibri: '"Inter", "Calibri", "Arial", "Noto Sans Devanagari", sans-serif',
+  arial: '"Inter", "Arial", "Calibri", "Noto Sans Devanagari", sans-serif',
   'cambria math': '"Cambria Math", "Noto Sans Math", sans-serif',
 };
 
@@ -377,6 +377,10 @@ export async function normalizeDocxBuffer(
 
     // Normalize any w:val="distribute" to w:val="both" in styles.xml for docx-preview compatibility
     stylesXml = stylesXml.replace(/(<w:jc[^>]*w:val=["'])distribute(["'])/gi, '$1both$2');
+
+    // BiDi / RTL Sanitization: Indic scripts are strictly LTR. Word often introduces
+    // erroneous <w:rtl/> or <w:bidi/> properties in styles, forcing docx-preview into RTL mode.
+    stylesXml = stylesXml.replace(/<w:rtl\s*\/?>/gi, '').replace(/<w:bidi\s*\/?>/gi, '');
     zip.file(stylesEntry.name, stylesXml);
   }
 
@@ -526,6 +530,11 @@ export async function normalizeDocxBuffer(
 
   // Normalize w:val="distribute" to w:val="both" in document paragraphs for docx-preview block justification
   docXml = docXml.replace(/(<w:jc[^>]*w:val=["'])distribute(["'])/gi, '$1both$2');
+
+  // BiDi / RTL Sanitization: Indic scripts are strictly LTR. Microsoft Word frequently embeds
+  // <w:rtl/> or <w:bidi/> tags on Indic runs or mixed Latin text runs (e.g. author blocks, semester tags),
+  // causing docx-preview to apply direction: rtl and reversing parentheses or punctuation.
+  docXml = docXml.replace(/<w:rtl\s*\/?>/gi, '').replace(/<w:bidi\s*\/?>/gi, '');
 
   // Propagate inherited block justification from styles if paragraph lacks an explicit <w:jc>
   if (defaultParagraphJc === 'both' || styleIdToJc.size > 0) {

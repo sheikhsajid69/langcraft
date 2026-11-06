@@ -199,3 +199,21 @@
   - `npm run lint` → 0 warnings, 0 errors ✅
   - `npm test` → 24/24 passing (4 test suites) ✅
   - `npm run build` → Production build succeeded cleanly ✅
+
+---
+
+### [2026-11-06 Mobile/Tablet Responsiveness, Logo Optimization & BiDi LTR Fidelity Overhaul]
+- **Date & Time:** 2026-11-06T19:05:00+05:30
+- **Context:** User requested full browser QA of `https://lc.sheikhsajid69.qzz.io`, fixing mobile/tablet layout breakouts, logo sizing issues, and testing end-to-end with `9557e827-50be-4f20-a0f4-12c4668b2aa5.docx`.
+- **Root Causes & Solutions Executed:**
+  - **Logo Memory Starvation:** Replaced 6.7 MB unoptimized PNG with 256x256 high-DPI logo (163 KB) and 64x64 favicon (11 KB). Configured `images: { unoptimized: true }` in `next.config.mjs` to eliminate on-demand sharp memory exhaustion timeouts. Added `object-contain` across Topbar, Header, Sidebar, and Footer.
+  - **Mobile Sidebar Leaking & Horizontal Bleed:** In `src/components/Sidebar.tsx`, `w-0 -translate-x-full` calculated `-100% * 0 = 0px` translation, leaking footer text into viewport at x >= 0. Resolved by fixing drawer width to `w-64`, keeping `-translate-x-full` off-canvas, and applying `overflow-hidden`.
+  - **Tablet Screen Squeeze (< 1024px):** Shifted breakpoint for docked desktop sidebar from 768px (`md`) to 1024px (`lg`). Tablet portrait (768px-820px) now renders canvas at full 100% width with a slide-out drawer instead of squeezing the workspace into 528px.
+  - **Footer 3-Column Collision:** Updated `Footer.tsx` grid to `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8` with 3rd column spanning 2 on tablet, preventing developer profile links and typography specs from colliding.
+  - **BiDi / RTL Parenthesis Reversal:** Sanitized `<w:rtl\s*\/?>` and `<w:bidi\s*\/?>` tags erroneously inserted by Microsoft Word in `word/document.xml` and `word/styles.xml`. Enforced `direction: ltr !important; unicode-bidi: normal !important;` in Chromium PDF shell. The author block `3rd year BSc (PMCs) (5th Sem)` now renders with 100% correct LTR ordering (no reversed `)PMCs( )5th Sem(3`).
+  - **Google Fonts Unicode-Range Preloading:** Pre-loaded Indic unicode slices with sample text (`मैथिलीशरण गुप्त`, `संस्कृतम्`, `ಕನ್ನಡ`, `తెలుగు`, `தமிழ்`) via CSS Font Loading API, ensuring HarfBuzz and Skia have OpenType GSUB tables available.
+- **Verification Gates (All Passed):**
+  - Tested with `9557e827-50be-4f20-a0f4-12c4668b2aa5.docx` -> 2 pages exact, zero tofu, correct title at index 0, clean author block, non-orphaned `उपसंहार :`.
+  - `npx tsc --noEmit` → 0 errors ✅
+  - `npm test` → 24/24 passing (4 test suites) ✅
+  - `npm run build` → Production build succeeded cleanly ✅

@@ -41,9 +41,9 @@ export default function Home() {
     }>
   >([]);
 
-  // Automatically open sidebar on desktop screens (>= 768px), keep closed on mobile
+  // Automatically open sidebar on desktop screens (>= 1024px), keep closed on mobile and tablet
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
       setIsSidebarOpen(true);
     }
   }, []);
@@ -308,10 +308,10 @@ export default function Home() {
         conversionHistory={conversionHistory}
       />
 
-      {/* Main Workspace Canvas (Responsive md:pl-60 offset) */}
+      {/* Main Workspace Canvas (Responsive lg:pl-64 offset) */}
       <div
         className={`flex-1 flex flex-col min-w-0 transition-all duration-200 ease-in-out ${
-          isSidebarOpen ? 'md:pl-60' : 'pl-0'
+          isSidebarOpen ? 'lg:pl-64' : 'pl-0'
         }`}
       >
         <Topbar
@@ -333,7 +333,7 @@ export default function Home() {
                 width={72}
                 height={72}
                 priority
-                className="h-14 w-14 sm:h-[72px] sm:w-[72px] rounded-xl border border-black/5 shadow-sm dark:border-white/10 shrink-0"
+                className="h-14 w-14 sm:h-[72px] sm:w-[72px] rounded-xl border border-black/5 shadow-sm dark:border-white/10 shrink-0 object-contain"
               />
               {diagnostic && (
                 <button

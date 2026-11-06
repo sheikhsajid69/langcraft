@@ -174,7 +174,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({
                 onLoadSample(item.id);
               }}
               disabled={isLoading}
-              className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-md bg-[#37352F]/5 dark:bg-white/5 hover:bg-[#37352F]/10 dark:hover:bg-white/10 text-[#37352F] dark:text-[#D4D4D4] font-medium transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 min-h-[32px] rounded-md bg-[#37352F]/5 dark:bg-white/5 hover:bg-[#37352F]/10 dark:hover:bg-white/10 text-[#37352F] dark:text-[#D4D4D4] font-medium transition-colors disabled:opacity-50 touch-manipulation"
               title={`Generate instant verified ${item.label} sample DOCX`}
             >
               <span>{item.label}</span>

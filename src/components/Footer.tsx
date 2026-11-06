@@ -24,16 +24,16 @@ export const Footer: React.FC<FooterProps> = ({ onOpenFontRegistry }) => {
     <footer className="w-full border-t border-[#37352F]/10 dark:border-white/10 bg-[#F7F6F3]/50 dark:bg-[#191919]/50 mt-16 text-xs text-[#787774] dark:text-[#9B9B9B] transition-colors">
       <div className="max-w-5xl mx-auto px-6 py-10 md:px-12 space-y-8">
         {/* Top Section: Developer Profile & Quick Links */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pb-6 border-b border-[#37352F]/10 dark:border-white/10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 pb-6 border-b border-[#37352F]/10 dark:border-white/10">
           {/* Brand & Creator Bio */}
-          <div className="space-y-3 md:col-span-1">
+          <div className="space-y-3 sm:col-span-1">
             <div className="flex items-center gap-2.5">
               <Image
                 src="/logo.png"
                 alt="LangCraft Logo"
                 width={28}
                 height={28}
-                className="h-7 w-7 rounded-lg border border-black/5 shadow-sm dark:border-white/10"
+                className="h-7 w-7 rounded-lg border border-black/5 shadow-sm dark:border-white/10 object-contain"
               />
               <span className="font-semibold text-sm tracking-tight text-[#37352F] dark:text-[#D4D4D4]">
                 LangCraft
@@ -62,7 +62,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenFontRegistry }) => {
           </div>
 
           {/* Developer Socials & Profiles */}
-          <div className="space-y-3 md:col-span-1">
+          <div className="space-y-3 sm:col-span-1">
             <h4 className="font-semibold text-[11px] uppercase tracking-wider text-[#37352F] dark:text-[#D4D4D4]">
               Developer Socials
             </h4>
@@ -132,7 +132,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenFontRegistry }) => {
           </div>
 
           {/* Architecture & Typography Specs */}
-          <div className="space-y-3 md:col-span-1">
+          <div className="space-y-3 sm:col-span-2 lg:col-span-1">
             <h4 className="font-semibold text-[11px] uppercase tracking-wider text-[#37352F] dark:text-[#D4D4D4]">
               Typography Architecture
             </h4>

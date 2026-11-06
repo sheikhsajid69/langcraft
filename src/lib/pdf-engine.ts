@@ -147,6 +147,13 @@ export async function renderDocxToPdf(options: RenderPdfOptions): Promise<Buffer
       font-feature-settings: "kern" 1, "liga" 1, "clig" 1, "calt" 1, "abvs" 1, "blws" 1, "pres" 1, "psts" 1, "haln" 1;
       text-rendering: optimizeLegibility;
       -webkit-font-smoothing: antialiased;
+      direction: ltr !important;
+      unicode-bidi: normal !important;
+    }
+    /* Enforce Left-to-Right direction across all elements to prevent BiDi parenthesis reversal */
+    #document-container, .docx, .docx-wrapper, .docx p, .docx span, .docx div {
+      direction: ltr !important;
+      unicode-bidi: normal !important;
     }
     /* Section & Wrapper overrides: eliminate fixed-height boxes and shadows */
     .docx-wrapper, section.docx {
@@ -246,9 +253,22 @@ export async function renderDocxToPdf(options: RenderPdfOptions): Promise<Buffer
     await page.addScriptTag({ content: jszipJs });
     await page.addScriptTag({ content: docxPreviewJs });
 
-    // Step 1: Preload web fonts first before calling docx.renderAsync
+    // Step 1: Preload web fonts with Indic glyph triggers so unicode-range slices are downloaded
     await page.evaluate(async () => {
-      await document.fonts.ready;
+      try {
+        await Promise.allSettled([
+          document.fonts.load('16px "Noto Sans Devanagari"', 'मैथिलीशरण गुप्त'),
+          document.fonts.load('bold 16px "Noto Sans Devanagari"', 'मैथिलीशरण गुप्त'),
+          document.fonts.load('16px "Noto Serif Devanagari"', 'संस्कृतम्'),
+          document.fonts.load('16px "Noto Sans Kannada"', 'ಕನ್ನಡ'),
+          document.fonts.load('16px "Noto Sans Telugu"', 'తెలుగు'),
+          document.fonts.load('16px "Noto Sans Tamil"', 'தமிழ்'),
+          document.fonts.load('16px "Inter"', 'LangCraft'),
+        ]);
+        await document.fonts.ready;
+      } catch {
+        // Non-blocking fallback
+      }
     });
 
     // Step 2: Render normalized DOCX unclipped
@@ -287,6 +307,18 @@ export async function renderDocxToPdf(options: RenderPdfOptions): Promise<Buffer
 
     // Step 4: Post-Render DOM Alignment, Superscript, and Font Stack Enforcer
     await page.evaluate((compositeMap) => {
+      // Enforce Left-to-Right direction across all nodes and strip rogue dir attributes
+      const allDirElements = document.querySelectorAll('[dir], [style*="direction"], p, span, div');
+      allDirElements.forEach((el: any) => {
+        if (el.getAttribute('dir')) {
+          el.removeAttribute('dir');
+        }
+        if (el.style) {
+          el.style.direction = 'ltr';
+          el.style.unicodeBidi = 'normal';
+        }
+      });
+
       // Enforce block justification
       const paragraphs = document.querySelectorAll('p');
       paragraphs.forEach((p) => {
@@ -312,17 +344,26 @@ export async function renderDocxToPdf(options: RenderPdfOptions): Promise<Buffer
         s.style.lineHeight = '0';
       });
 
-      // Expand font-family to metric-matched composite stacks
-      const styledElements = document.querySelectorAll('[style*="font-family"]');
+      // Expand font-family to metric-matched composite stacks or detect Indic text
+      const styledElements = document.querySelectorAll('[style*="font-family"], p, span');
       styledElements.forEach((el: any) => {
+        const text = el.textContent || '';
         const ff = el.style.fontFamily;
+        let matched = false;
         if (ff) {
           const clean = ff.toLowerCase().replace(/['"]/g, '').trim();
           for (const [key, stack] of Object.entries(compositeMap)) {
             if (clean.includes(key)) {
               el.style.fontFamily = stack as string;
+              matched = true;
               break;
             }
+          }
+        }
+        // If element contains Indic text and either had no font or general font, ensure Noto Sans/Serif Devanagari is included
+        if (/[\u0900-\u0D7F]/.test(text)) {
+          if (!matched || !el.style.fontFamily || el.style.fontFamily.includes('Inter') || el.style.fontFamily.includes('Arial') || el.style.fontFamily.includes('Calibri')) {
+            el.style.fontFamily = '"Noto Sans Devanagari", "Noto Serif Devanagari", "Inter", sans-serif';
           }
         }
       });

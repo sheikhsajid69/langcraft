@@ -49,14 +49,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const handleScriptClick = (script: IndicScript | 'All') => {
     onSelectScriptFilter(script);
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
       onToggle();
     }
   };
 
   const handleRegistryClick = () => {
     onOpenFontRegistry();
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
       onToggle();
     }
   };
@@ -66,7 +66,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Mobile Backdrop Overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs md:hidden transition-opacity duration-200"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs lg:hidden transition-opacity duration-200"
           onClick={onToggle}
           aria-label="Close sidebar"
         />
@@ -74,10 +74,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Main Sidebar Drawer */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 md:z-30 flex flex-col border-r border-[#37352F]/10 dark:border-white/10 bg-[#F7F6F3] dark:bg-[#202020] transition-all duration-200 ease-in-out shadow-xl md:shadow-none ${
-          isOpen
-            ? 'w-64 md:w-60 translate-x-0'
-            : 'w-0 -translate-x-full pointer-events-none'
+        className={`fixed inset-y-0 left-0 z-50 lg:z-30 w-64 flex flex-col border-r border-[#37352F]/10 dark:border-white/10 bg-[#F7F6F3] dark:bg-[#202020] transition-transform duration-200 ease-in-out shadow-xl lg:shadow-none overflow-hidden ${
+          isOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none'
         }`}
       >
         {/* Workspace Brand Header */}
@@ -88,7 +86,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               alt="LangCraft Workspace"
               width={26}
               height={26}
-              className="h-6.5 w-6.5 shrink-0 rounded-lg border border-black/5 shadow-xs dark:border-white/10"
+              className="h-6.5 w-6.5 shrink-0 rounded-lg border border-black/5 shadow-xs dark:border-white/10 object-contain"
             />
             <div className="flex flex-col min-w-0">
               <span className="font-semibold text-sm tracking-tight text-[#37352F] dark:text-[#D4D4D4] truncate">
@@ -104,10 +102,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className="p-1.5 rounded hover:bg-[#37352F]/10 dark:hover:bg-white/10 text-[#787774] dark:text-[#9B9B9B] transition-colors"
             title="Close Sidebar (Ctrl+\)"
           >
-            <span className="md:hidden">
+            <span className="lg:hidden">
               <X className="w-4 h-4" />
             </span>
-            <span className="hidden md:inline">
+            <span className="hidden lg:inline">
               <ChevronLeft className="w-4 h-4" />
             </span>
           </button>
@@ -221,7 +219,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {!isOpen && (
         <button
           onClick={onToggle}
-          className="fixed bottom-4 left-4 z-20 hidden md:flex items-center gap-1 p-2 rounded-md bg-[#F7F6F3] dark:bg-[#202020] border border-[#37352F]/15 dark:border-white/15 text-[#37352F] dark:text-[#D4D4D4] shadow-xs hover:bg-[#37352F]/10 transition-colors"
+          className="fixed bottom-4 left-4 z-20 hidden lg:flex items-center gap-1 p-2 rounded-md bg-[#F7F6F3] dark:bg-[#202020] border border-[#37352F]/15 dark:border-white/15 text-[#37352F] dark:text-[#D4D4D4] shadow-xs hover:bg-[#37352F]/10 transition-colors"
           title="Expand Sidebar (Ctrl+\)"
         >
           <ChevronRight className="w-4 h-4" />
