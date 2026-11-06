@@ -150,8 +150,7 @@ export async function renderDocxToPdf(options: RenderPdfOptions): Promise<Buffer
       direction: ltr !important;
       unicode-bidi: normal !important;
     }
-    /* Enforce Left-to-Right direction across all elements to prevent BiDi parenthesis reversal */
-    #document-container, .docx, .docx-wrapper, .docx p, .docx span, .docx div {
+    #document-container, .docx-wrapper, .docx {
       direction: ltr !important;
       unicode-bidi: normal !important;
     }
@@ -307,16 +306,10 @@ export async function renderDocxToPdf(options: RenderPdfOptions): Promise<Buffer
 
     // Step 4: Post-Render DOM Alignment, Superscript, and Font Stack Enforcer
     await page.evaluate((compositeMap) => {
-      // Enforce Left-to-Right direction across all nodes and strip rogue dir attributes
-      const allDirElements = document.querySelectorAll('[dir], [style*="direction"], p, span, div');
-      allDirElements.forEach((el: any) => {
-        if (el.getAttribute('dir')) {
-          el.removeAttribute('dir');
-        }
-        if (el.style) {
-          el.style.direction = 'ltr';
-          el.style.unicodeBidi = 'normal';
-        }
+      // Strip rogue direction overrides
+      document.querySelectorAll('[dir], [style*="direction"]').forEach((el: any) => {
+        el.removeAttribute('dir');
+        if (el.style) el.style.direction = 'ltr';
       });
 
       // Enforce block justification

@@ -264,14 +264,14 @@ describe('LangCraft Layout Fidelity & Typography Verification Suite', () => {
   });
 
   // TC-LAYOUT-05: Brand Identity, Favicon & Notion Design System UI Integrity
-  it('TC-LAYOUT-05: Verify Epic-Elephant-langcraft.png favicon/logo and Notion Design System UI remain intact and build passes', () => {
+  it('TC-LAYOUT-05: Verify logo.png favicon/logo and Notion Design System UI remain intact and build passes', () => {
     const logoPublic = path.join(process.cwd(), 'public', 'logo.png');
-    const elephantPublic = path.join(process.cwd(), 'public', 'Epic-Elephant-langcraft.png');
+    const faviconPng = path.join(process.cwd(), 'public', 'favicon.png');
     const faviconIco = path.join(process.cwd(), 'public', 'favicon.ico');
     const appIcon = path.join(process.cwd(), 'src', 'app', 'icon.png');
 
     expect(fs.existsSync(logoPublic)).toBe(true);
-    expect(fs.existsSync(elephantPublic)).toBe(true);
+    expect(fs.existsSync(faviconPng)).toBe(true);
     expect(fs.existsSync(faviconIco)).toBe(true);
     expect(fs.existsSync(appIcon)).toBe(true);
 

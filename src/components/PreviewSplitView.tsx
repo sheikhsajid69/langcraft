@@ -19,7 +19,6 @@ import { DocumentDiagnostic } from '@/types';
 
 interface PreviewSplitViewProps {
   htmlContent: string;
-  pdfBase64?: string;
   pdfUrl?: string;
   pdfFilename?: string;
   diagnostic: DocumentDiagnostic;
@@ -30,7 +29,6 @@ interface PreviewSplitViewProps {
 
 export const PreviewSplitView: React.FC<PreviewSplitViewProps> = ({
   htmlContent,
-  pdfBase64,
   pdfUrl,
   pdfFilename = 'langcraft-output.pdf',
   diagnostic,
@@ -42,7 +40,7 @@ export const PreviewSplitView: React.FC<PreviewSplitViewProps> = ({
   const [copied, setCopied] = useState<boolean>(false);
   const [mobileTab, setMobileTab] = useState<'preview' | 'pdf'>('preview');
 
-  const activePdfSource = pdfUrl || (pdfBase64 ? `data:application/pdf;base64,${pdfBase64}` : undefined);
+  const activePdfSource = pdfUrl;
 
   const handleDownloadPdf = () => {
     if (!activePdfSource) return;
